@@ -1,0 +1,26 @@
+Werte und Quellen für Maimaltemperaturen. Wo keine URL angegeben ist wurden die jährlichen Berichte des DWD verwendet.
+
+
+2003: 13.08 40,2 °C		https://www.dwd.de/DE/leistungen/besondereereignisse/temperatur/20030828_rekordsommer2003.pdf?__blob=publicationFile&v=4
+2004: 05.08 34,5 °C    	https://www.stern.de/reise/sommer-2004-heiss--heisser--am-heissesten--3071588.html; https://www.tagesschau.de/multimedia/tsvorzwanzigjahren-430.html
+2005: 28.07 36,7 °C 	
+2006: 19.07 39,0 °C 
+2007: 16.07 39,2 °C
+2008: 02.07 36,4 °C
+2009: 20.08 37,8 °C
+2010: 10.07 38,8 °C
+2011: 22.08 36,7 °C   	https://www.dwd.de/DE/presse/pressemitteilungen/DE/2011/20111229_deutschlandwetter_jahr.pdf?__blob=publicationFile&v=2
+2012: 19.08 39,0 °C
+2013: 27.07 38,6 °C   	https://www.dwd.de/DE/presse/pressemitteilungen/DE/2013/20130829_DeutschlandwetterimSommer.pdf?__blob=publicationFile&v=4
+2014: 09.06 37,7 °C 
+2015: 05.07 40,3 °C   	https://www.dwd.de/DE/presse/pressemitteilungen/DE/2015/20150828_deutschlandwetter_sommer_2015.pdf?__blob=publicationFile&v=3
+2016: 27.08 37,9 °C		https://www.dwd.de/DE/presse/pressemitteilungen/DE/2016/20160830_deutschlandwetter_sommer.pdf?__blob=publicationFile&v=4
+2017: 22.06 37,2 °C		https://www.dwd.de/DE/presse/pressemitteilungen/DE/2017/20171229_deutschlandwetter_jahr2017.pdf?__blob=publicationFile&v=2
+2018: 31.07 39,5 °C
+2019: 24.07 41,2 °C		https://de.wikipedia.org/wiki/Liste_der_Temperaturrekorde_in_Deutschland; https://www.dwd.de/DE/leistungen/besondereereignisse/temperatur/20190801_hitzerekord_juli2019.pdf?__blob=publicationFile&v=3
+2020: 09.08 38,6 °C		https://www.dwd.de/DE/presse/pressemitteilungen/DE/2020/20201230_deutschlandwetter_jahr_2020_news.html
+2021: 17.06 36,6 °C		https://www.dwd.de/DE/presse/pressemitteilungen/DE/2021/20211230_deutschlandwetter_jahr2021_news.html
+2022: 20.07 40,1 °C		https://www.dwd.de/DE/presse/pressemitteilungen/DE/2022/20221230_deutschlandwetter_jahr2022_news.html
+2023: 15.07 38,8 °C		https://www.dwd.de/DE/presse/pressemitteilungen/DE/2023/20231229_deutschlandwetter_jahr2023_news.html
+2024: 13.08 36,5 °C		https://www.dwd.de/DE/leistungen/klimastatusbericht/publikationen/ksb_2024.pdf?__blob=publicationFile&v=5
+2025: 02.07 39,1 °C	    https://www.dwd.de/DE/presse/pressemitteilungen/DE/2025/20250829_pm_sommer_news.html
