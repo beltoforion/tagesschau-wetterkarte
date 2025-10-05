@@ -2,3 +2,5 @@ numpy
 Pillow
 matplotlib
 colour-science
+opencv-python
+pytesseract
