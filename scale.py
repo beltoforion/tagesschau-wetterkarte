@@ -364,12 +364,12 @@ def plot_all_rgb_cie1931(rgb_map: Dict[int, List[Tuple[float, float, float]]],
         ax.text(
             x, y,
             lbl,
-            fontsize=3,
+            fontsize=6,
             ha="left",
             va="bottom",
             clip_on=True,
             path_effects=[pe.withStroke(linewidth=1, foreground="white")],
-            zorder=35,
+            zorder=99,
         )
 
     ax.set_title(f"CIE 1931 – Alle RGB Samples (n={len(rgb)})", fontsize=16)
