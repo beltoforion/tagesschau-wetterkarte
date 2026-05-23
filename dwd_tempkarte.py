@@ -6,20 +6,25 @@ Datenquelle: DWD Climate Data Center (CDC), Tageswerte (KL) der Klimastationen
 
 Pro Station wird das ZIP heruntergeladen, die Tageszeile extrahiert und der
 gewünschte Parameter (TMK/TXK/TNK) auf ein reguläres Gitter interpoliert.
+Heruntergeladene Beobachtungen werden in cache/ als JSON zwischengespeichert,
+sodass weitere Karten mit anderer Farbskala ohne erneuten Download erzeugt werden.
 
 Beispiele:
     python dwd_tempkarte.py 2024-05-23
     python dwd_tempkarte.py 2024-05-23 --param max --output output/tmax_2024-05-23.png
+    python dwd_tempkarte.py 2024-05-23 --param max --cmap viridis
+    python dwd_tempkarte.py 2024-05-23 --param max --cmap turbo --step 1
 """
 
 from __future__ import annotations
 
 import argparse
 import io
+import json
 import sys
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -28,8 +33,21 @@ from urllib.request import Request, urlopen
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import BoundaryNorm
+from matplotlib.colors import Normalize
 from scipy.interpolate import griddata
+
+
+CACHE_DIR = Path("cache")
+
+# Deutschland-Polygon (MIT) – isellsoap/deutschlandGeoJSON
+GERMANY_OUTLINE_URL = (
+    "https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/"
+    "main/1_deutschland/2_hoch.geo.json"
+)
+STATES_OUTLINE_URL = (
+    "https://raw.githubusercontent.com/isellsoap/deutschlandGeoJSON/"
+    "main/2_bundeslaender/2_hoch.geo.json"
+)
 
 
 CDC_BASE = "https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl"
@@ -173,7 +191,52 @@ def fetch_station_value(folder_url: str, zip_name: str, target: date, col: str) 
     return None
 
 
-def collect_observations(target: date, param: str, workers: int = 16) -> list[tuple[Station, float]]:
+def cache_path(target: date, param: str) -> Path:
+    return CACHE_DIR / f"obs_{param}_{target.isoformat()}.json"
+
+
+def load_cached(target: date, param: str) -> Optional[list[tuple[Station, float]]]:
+    p = cache_path(target, param)
+    if not p.exists():
+        return None
+    try:
+        data = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    out: list[tuple[Station, float]] = []
+    for row in data:
+        s = row["station"]
+        out.append((Station(
+            stid=s["stid"],
+            von=datetime.strptime(s["von"], "%Y-%m-%d").date(),
+            bis=datetime.strptime(s["bis"], "%Y-%m-%d").date(),
+            hoehe=s["hoehe"], lat=s["lat"], lon=s["lon"], name=s["name"],
+        ), row["value"]))
+    return out
+
+
+def save_cache(target: date, param: str, observations: list[tuple[Station, float]]) -> None:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    serialized = []
+    for s, v in observations:
+        d = asdict(s)
+        d["von"] = s.von.isoformat()
+        d["bis"] = s.bis.isoformat()
+        serialized.append({"station": d, "value": v})
+    cache_path(target, param).write_text(
+        json.dumps(serialized, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
+
+
+def collect_observations(target: date, param: str, workers: int = 16,
+                         use_cache: bool = True) -> list[tuple[Station, float]]:
+    if use_cache:
+        cached = load_cached(target, param)
+        if cached is not None:
+            print(f"[i] {len(cached)} Stationen aus Cache geladen "
+                  f"({cache_path(target, param)})", file=sys.stderr)
+            return cached
+
     col, _ = PARAM_COLUMNS[param]
     today = date.today()
     use_recent = (today - target).days <= RECENT_WINDOW_DAYS
@@ -214,10 +277,62 @@ def collect_observations(target: date, param: str, workers: int = 16) -> list[tu
                 results.append(r)
 
     print(f"[i] {len(results)} Stationen mit gültigem {col}-Wert", file=sys.stderr)
+    if use_cache and results:
+        save_cache(target, param, results)
     return results
 
 
-def render_map(observations: list[tuple[Station, float]], target: date, param: str, out_path: Path) -> None:
+def _load_geojson(url: str, cache_name: str) -> Optional[dict]:
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cache_file = CACHE_DIR / cache_name
+    if cache_file.exists():
+        try:
+            return json.loads(cache_file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            pass
+    try:
+        data = http_get(url, timeout=60)
+    except (URLError, HTTPError, TimeoutError) as e:
+        print(f"[!] Konnte {url} nicht laden: {e}", file=sys.stderr)
+        return None
+    cache_file.write_bytes(data)
+    return json.loads(data.decode("utf-8"))
+
+
+def _iter_rings(geom: dict):
+    """Liefert (lon[], lat[]) für jeden äußeren/inneren Ring von Polygon/MultiPolygon."""
+    if geom["type"] == "Polygon":
+        polys = [geom["coordinates"]]
+    elif geom["type"] == "MultiPolygon":
+        polys = geom["coordinates"]
+    else:
+        return
+    for poly in polys:
+        for ring in poly:
+            arr = np.asarray(ring)
+            yield arr[:, 0], arr[:, 1]
+
+
+def draw_overlay(ax, with_states: bool) -> None:
+    germany = _load_geojson(GERMANY_OUTLINE_URL, "germany_outline.geojson")
+    if germany:
+        for feat in germany.get("features", [germany]):
+            geom = feat.get("geometry", feat)
+            for lon, lat in _iter_rings(geom):
+                ax.plot(lon, lat, color="black", linewidth=1.4, zorder=4)
+
+    if with_states:
+        states = _load_geojson(STATES_OUTLINE_URL, "states_outline.geojson")
+        if states:
+            for feat in states.get("features", []):
+                geom = feat.get("geometry", {})
+                for lon, lat in _iter_rings(geom):
+                    ax.plot(lon, lat, color="black", linewidth=0.5, alpha=0.6, zorder=3)
+
+
+def render_map(observations: list[tuple[Station, float]], target: date, param: str,
+               out_path: Path, cmap_name: str = "RdYlBu_r", step: float = 1.0,
+               show_states: bool = False, show_stations: bool = True) -> None:
     if len(observations) < 5:
         raise RuntimeError(f"Zu wenige Datenpunkte ({len(observations)}) für eine sinnvolle Karte.")
 
@@ -233,27 +348,38 @@ def render_map(observations: list[tuple[Station, float]], target: date, param: s
     glon, glat = np.meshgrid(grid_lon, grid_lat)
 
     grid = griddata((lons, lats), vals, (glon, glat), method="cubic")
-    # Lücken am Rand mit nearest auffüllen, damit Contourf sauber arbeitet
+    # Lücken am Rand mit nearest auffüllen, damit das Bild flächendeckend ist
     nearest = griddata((lons, lats), vals, (glon, glat), method="nearest")
     grid = np.where(np.isnan(grid), nearest, grid)
 
-    # Farbskala an die tatsächliche Datenbreite anpassen, aber auf 2°-Schritte gerastert
-    vmin = np.floor(vals.min() / 2) * 2
-    vmax = np.ceil(vals.max() / 2) * 2
-    if vmax - vmin < 4:
-        vmax = vmin + 4
-    levels = np.arange(vmin, vmax + 2, 2)
-    cmap = plt.get_cmap("RdYlBu_r")
-    norm = BoundaryNorm(levels, ncolors=cmap.N, clip=True)
+    # Farbskala: kontinuierlich (glatte Übergänge), Konturlinien auf `step`-Raster
+    vmin = float(np.floor(vals.min() / step) * step)
+    vmax = float(np.ceil(vals.max() / step) * step)
+    if vmax - vmin < 2 * step:
+        vmax = vmin + 2 * step
+    cmap = plt.get_cmap(cmap_name)
+    norm = Normalize(vmin=vmin, vmax=vmax)
 
     fig, ax = plt.subplots(figsize=(9, 10))
-    cf = ax.contourf(glon, glat, grid, levels=levels, cmap=cmap, norm=norm, extend="both")
-    ax.contour(glon, glat, grid, levels=levels, colors="black", linewidths=0.3, alpha=0.5)
+    mesh = ax.pcolormesh(glon, glat, grid, cmap=cmap, norm=norm, shading="auto", zorder=1)
+
+    # Konturlinien (feine Stufen)
+    levels = np.arange(vmin, vmax + step, step)
+    cs = ax.contour(glon, glat, grid, levels=levels, colors="black",
+                    linewidths=0.4, alpha=0.5, zorder=2)
+    # Beschriftung nur auf jeder n-ten Linie, damit es nicht überladen wirkt
+    label_stride = max(1, int(round(2.0 / step)))
+    ax.clabel(cs, levels=levels[::label_stride], inline=True, fontsize=6, fmt="%g°")
+
+    # Deutschland-Overlay
+    draw_overlay(ax, with_states=show_states)
 
     # Stationen
-    ax.scatter(lons, lats, s=10, c="black", marker="o", zorder=5, linewidths=0)
-    for lon, lat, val in zip(lons, lats, vals):
-        ax.text(lon, lat, f"{val:.0f}", fontsize=5, ha="center", va="bottom", zorder=6, color="black")
+    if show_stations:
+        ax.scatter(lons, lats, s=8, c="black", marker="o", zorder=5, linewidths=0)
+        for lon, lat, val in zip(lons, lats, vals):
+            ax.text(lon, lat, f"{val:.0f}", fontsize=5, ha="center", va="bottom",
+                    zorder=6, color="black")
 
     ax.set_xlim(lon_min, lon_max)
     ax.set_ylim(lat_min, lat_max)
@@ -264,7 +390,10 @@ def render_map(observations: list[tuple[Station, float]], target: date, param: s
     _, label = PARAM_COLUMNS[param]
     ax.set_title(f"{label}\nDeutschland · {target.strftime('%d.%m.%Y')}\nDatenquelle: DWD CDC", fontsize=12)
 
-    cbar = fig.colorbar(cf, ax=ax, orientation="vertical", shrink=0.85, pad=0.02, ticks=levels)
+    # Colorbar-Ticks auf ein lesbares Raster (mindestens 1 °C, jeder n-te level)
+    tick_stride = max(1, int(round(max(1.0, step) / step)))
+    cbar = fig.colorbar(mesh, ax=ax, orientation="vertical", shrink=0.85, pad=0.02,
+                        ticks=levels[::tick_stride])
     cbar.set_label("Temperatur [°C]")
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -282,6 +411,18 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output", "-o", type=Path, default=None,
                    help="Pfad der Ausgabedatei (PNG). Default: output/dwd_<param>_<datum>.png")
     p.add_argument("--workers", type=int, default=16, help="Parallele Downloads (Default: 16)")
+    p.add_argument("--cmap", default="RdYlBu_r",
+                   help="Matplotlib-Colormap (z.B. RdYlBu_r, viridis, turbo, coolwarm, plasma, "
+                        "inferno, Spectral_r). Default: RdYlBu_r")
+    p.add_argument("--step", type=float, default=1.0,
+                   help="Stufenweite der Konturlinien/Colorbar in °C (Default: 1.0). "
+                        "Die Farbfläche selbst ist immer kontinuierlich.")
+    p.add_argument("--states", action="store_true",
+                   help="Bundesländer-Grenzen mit anzeigen")
+    p.add_argument("--no-stations", action="store_true",
+                   help="Stationspunkte und -beschriftungen ausblenden")
+    p.add_argument("--no-cache", action="store_true",
+                   help="Cache ignorieren und Daten neu vom DWD laden")
     return p.parse_args()
 
 
@@ -297,10 +438,16 @@ def main() -> int:
         print("Hinweis: Tageswerte aus CDC sind für heute/Zukunft noch nicht verfügbar.", file=sys.stderr)
         return 2
 
-    out_path = args.output or Path("output") / f"dwd_{args.param}_{target.isoformat()}.png"
+    out_path = args.output or (
+        Path("output") / f"dwd_{args.param}_{target.isoformat()}_{args.cmap}.png"
+    )
 
-    observations = collect_observations(target, args.param, workers=args.workers)
-    render_map(observations, target, args.param, out_path)
+    observations = collect_observations(
+        target, args.param, workers=args.workers, use_cache=not args.no_cache
+    )
+    render_map(observations, target, args.param, out_path,
+               cmap_name=args.cmap, step=args.step,
+               show_states=args.states, show_stations=not args.no_stations)
     return 0
 
 
