@@ -26,7 +26,57 @@ def pre_process_file(input_file : str, output_dir : str, debug : bool = False) -
     if img is None:
         raise FileNotFoundError(f"Input file {input_file} could not be read as an image.")
 
+    w,h = img.shape[1], img.shape[0]
+
+    # wenn das bild 1920x1080 ist, dann wird es um die hälfte runterskaliert. OCR funktioniert zuverlässiger
+    # mit kleineren Bildern
+#    if w==1920 and h==1080:
+#        proc = cv2.resize(img, (int(w/2), int(h/2)), interpolation=cv2.INTER_AREA)
+#        proc = cv2.GaussianBlur(img, (5, 5), 0)
+
     return img, img
+
+    proc = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    if debug:
+        cv2.imwrite(os.path.join(output_dir, "proc_01_gray.png"), proc)
+
+    proc = cv2.bitwise_not(proc)
+    if debug:
+        cv2.imwrite(os.path.join(output_dir, "proc_02_inverted.png"), proc)
+
+    threshold = 25
+    proc = np.where(proc <= threshold, 0, 255).astype(np.uint8)
+    if debug:    
+        cv2.imwrite(os.path.join(output_dir, "proc_03_threshold.png"), proc)
+
+#    proc = cv2.GaussianBlur(proc, (3, 3), 0)
+#    if debug:    
+#        cv2.imwrite(os.path.join(output_dir, "proc_04_blur.png"), proc)
+
+    return img, proc
+
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    inv = cv2.bitwise_not(gray)
+    cv2.imwrite(os.path.join(output_dir, "01_inverted.png"), inv)
+
+    # 2. Harte Schwelle: nur sehr dunkle Pixel ≤ 25 behalten
+    threshold = 25
+    raw_mask = np.where(inv <= threshold, 0, 255).astype(np.uint8)
+    cv2.imwrite(os.path.join(output_dir, "02_mask_thresh.png"), raw_mask)
+
+    # 3. Connected Components: kleine Fragmente entfernen
+    num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(255 - raw_mask, connectivity=8)
+
+    min_area = 30
+    clean_mask = np.full_like(raw_mask, 255)  # Start: alles weiß
+
+    for i in range(1, num_labels):  # i=0 ist Hintergrund
+        area = stats[i, cv2.CC_STAT_AREA]
+        if area >= min_area:
+            clean_mask[labels == i] = 0  # behalten
+
+    cv2.imwrite(os.path.join(output_dir, "03_mask_cleaned.png"), clean_mask)
+    return img, clean_mask
 
 
 def detect_temp_values(img: np.ndarray, box_scale: float = 0.8):
@@ -582,11 +632,14 @@ def plot_rgb_fit_cie1931(
 
 
 def main():
+#    input_file = "./bilder_wetterkarten_de_2025/nacht-2025-05-02.webp"
+    input_file = "./bilder_wetterkarten_de_2025/tag-2025-02-16.png"
     input_file = "./bilder_wetterkarten_de_2025/tag-2025-07-01.webp"
     input_dir = "./bilder_wetterkarten_de_2025/"
     output_dir = "./output/"
 
 #    img_result, rgb_map = process_file(input_file, output_dir, average_rgb_map=True, debug=True)
+#    exit(0)
 
     if not os.path.exists(os.path.join(output_dir, "aggregated_rgb_map.json")):
         rgb_map = process_folder(input_dir, output_dir, debug=False)
@@ -599,7 +652,7 @@ def main():
         print(f"{num}: [{s}]")
 
     # 3d Chart with all temp values
-    order = 7
+    order = 11
     fit = fit_rgb_polynomial(rgb_map, order)
     save_rgb_fit(os.path.join(output_dir, f"all_rgb_fit_deg{order}.json"), fit)
     plot_rgb_fit_3d(rgb_map, fit, output_dir=output_dir, filename=f"all_rgb_3d_deg{order}_fit.png", n_curve=200)
