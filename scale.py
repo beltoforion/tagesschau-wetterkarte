@@ -635,8 +635,13 @@ def plot_map_panel(name: str,
     temps, scale_rgb = compute_color_scale(rgb_map)
     t_fine, rgb_fine = fit_color_spline(temps, scale_rgb)
 
-    fig = plt.figure(figsize=(18, 6.5))
-    gs = fig.add_gridspec(1, 3, width_ratios=[1.1, 1.2, 0.18], wspace=0.25)
+    # Breite knapp am Inhalt halten: das CIE-Diagramm hat ein festes
+    # Seitenverhaeltnis und fuellt einen breiteren Slot nicht aus, die
+    # 3D-Achse bringt grosse Eigenraender mit — beides erzeugte sonst
+    # breite Leerflaechen zwischen den Panels.
+    fig = plt.figure(figsize=(13, 6.5))
+    gs = fig.add_gridspec(1, 3, width_ratios=[1.0, 1.05, 0.13], wspace=0.05,
+                          left=0.04, right=0.93)
 
     # links: CIE 1931
     ax_cie = fig.add_subplot(gs[0])
@@ -646,6 +651,7 @@ def plot_map_panel(name: str,
     # Mitte: RGB-Wuerfel mit Kurve
     ax_3d = fig.add_subplot(gs[1], projection="3d")
     draw_rgb_3d(ax_3d, rgb_map, temps, scale_rgb, rgb_fine)
+    ax_3d.set_box_aspect((1, 1, 1), zoom=1.15)
     ax_3d.set_title("RGB-Raum mit Ausgleichskurve", fontsize=12)
 
     # rechts: Farbskala aus der Kurve, vertikal (kalt unten, warm oben)
@@ -655,6 +661,9 @@ def plot_map_panel(name: str,
                   extent=(0, 1, float(t_fine.min()), float(t_fine.max())),
                   interpolation="bilinear")
     ax_bar.set_xticks([])
+    # Achse rechts vom Balken, damit sie nicht mit der 3D-Achse kollidiert
+    ax_bar.yaxis.tick_right()
+    ax_bar.yaxis.set_label_position("right")
     ax_bar.yaxis.set_major_locator(tck.MultipleLocator(2))
     ax_bar.yaxis.set_minor_locator(tck.MultipleLocator(1))
     ax_bar.set_ylabel("Temperatur [°C]")
