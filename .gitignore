@@ -2,3 +2,5 @@
 .venv/*
 output/*
 *.png
+__pycache__/
+cache/
