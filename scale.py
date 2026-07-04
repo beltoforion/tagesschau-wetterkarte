@@ -27,28 +27,20 @@ from typing import Dict, List, Tuple
 from collections import defaultdict
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 from pathlib import Path
+from mpl_toolkits.mplot3d import Axes3D  
+from numpy.typing import NDArray
+from typing import Any
 
 
-def detect_temp_values(img: np.ndarray, box_scale: float = 0.8) -> List[dict]:
-    """Erkennt die Temperaturzahlen auf einer Wetterkarte per OCR.
+def pre_process_file(input_file : str, output_dir : str, debug : bool = False) -> Tuple[MatLike, np.ndarray]:
+    img : MatLike | None = cv2.imread(input_file)
+    if img is None:
+        raise FileNotFoundError(f"Input file {input_file} could not be read as an image.")
 
-    Das Bild wird fuer die Erkennung auf die doppelte Groesse hochskaliert
-    (easyocr arbeitet damit zuverlaessiger), die gefundenen Boxen werden
-    anschliessend in die Originalkoordinaten zurueckgerechnet.
+    return img, img
 
-    Gefiltert wird auf ganze Zahlen im plausiblen Temperaturbereich; bekannte
-    Fehlerkennungen (ARD-Logo, Bulletpoints vor Staedtenamen) werden verworfen.
 
-    Args:
-        img: Eingabebild (BGR oder Graustufen).
-        box_scale: Faktor, um den jede Box um ihren Mittelpunkt verkleinert
-            wird. Kleinere Boxen liegen enger an den Ziffern und verbessern
-            das anschliessende Farbsampling am Boxrand.
-
-    Returns:
-        Liste von Boxen als dict mit den Schluesseln
-        "text", "x", "y", "w", "h", "conf".
-    """
+def detect_temp_values(img: np.ndarray, box_scale: float = 0.8):
     g = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) if img.ndim == 3 else img.astype(np.uint8, copy=False)
     H, W = g.shape[:2]
 
@@ -1217,17 +1209,263 @@ def print_uniformity_report(result: dict, heading: str) -> None:
           f"{n_jump} Sprünge (> Mittel + 2σ), Helligkeit L*: {mono}")
 
 
-def main():
-    input_dir = "./bilder_wetterkarten_de_2025-2026/"
-    output_dir = "./output_2025-2026/"
-    json_path = os.path.join(output_dir, "aggregated_rgb_map.json")
-    per_file_path = os.path.join(output_dir, "per_file_rgb_map.json")
+def _mean_samples_per_temp(rgb_map: Dict[int, List[Tuple[float, float, float]]]) -> Tuple[np.ndarray, np.ndarray]:
+    temps, rgbs = [], []
+    for t, samples in rgb_map.items():
+        arr = np.asarray(samples, dtype=float)
+        if arr.size == 0:
+            continue
+        temps.append(t)
+        rgbs.append(arr.mean(axis=0))
+    if not temps:
+        return np.empty((0,)), np.empty((0, 3))
+    T = np.asarray(temps, dtype=float)
+    RGB = np.asarray(rgbs, dtype=float)  # shape (n,3)
+    # sort by temperature for nicer plots
+    idx = np.argsort(T)
+    return T[idx], RGB[idx]
 
-    # Messdaten aus dem Cache laden oder einmalig aus den Bildern extrahieren
-    if not (os.path.exists(json_path) and os.path.exists(per_file_path)):
-        rgb_map, per_file = process_folder(input_dir, output_dir)
-        save_rgb_map(json_path, rgb_map)
-        save_per_file_rgb_map(per_file_path, per_file)
+
+def fit_rgb_polynomial(rgb_map: Dict[int, List[Tuple[float, float, float]]], order: int = 7) -> Dict[str, Any]:
+    """
+    Fit R(T), G(T), B(T) with degree-'order' polynomials.
+    Uses a scaled temperature z in [-1, 1] for numerical stability:
+      z = (T - t0) / s, where t0 = (Tmin+Tmax)/2, s = (Tmax-Tmin)/2.
+    Returns coefficients for R(z), G(z), B(z) plus scaling.
+    """
+    T, RGB = _mean_samples_per_temp(rgb_map)
+    if T.size == 0:
+        raise ValueError("No data to fit.")
+
+    tmin, tmax = float(T.min()), float(T.max())
+    t0 = 0.5 * (tmin + tmax)
+    s = max(1e-9, 0.5 * (tmax - tmin))  # avoid zero division if single T
+
+    z = (T - t0) / s
+    R, G, B = RGB[:, 0], RGB[:, 1], RGB[:, 2]
+
+    # polyfit returns highest-order first, for use with np.polyval
+    cr = np.polyfit(z, R, deg=order)
+    cg = np.polyfit(z, G, deg=order)
+    cb = np.polyfit(z, B, deg=order)
+
+    return {
+        "order": int(order),
+        "t0": float(t0),
+        "s": float(s),
+        "coeff_r": cr.tolist(),
+        "coeff_g": cg.tolist(),
+        "coeff_b": cb.tolist(),
+        "domain": [tmin, tmax],
+        "n_points": int(T.size),
+    }
+
+
+def save_rgb_fit(path: str, fit: Dict[str, Any]) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(fit, f, ensure_ascii=False, indent=2)
+
+
+def eval_rgb_fit(fit: Dict[str, Any], T: NDArray[np.floating]) -> np.ndarray:
+    """
+    Evaluate fitted RGB at temperatures T.
+    Returns array shape (len(T), 3). Values are not clipped.
+    """
+    t0 = fit["t0"]; s = fit["s"]
+    z = (np.asarray(T, dtype=float) - t0) / s
+    R = np.polyval(np.asarray(fit["coeff_r"], dtype=float), z)
+    G = np.polyval(np.asarray(fit["coeff_g"], dtype=float), z)
+    B = np.polyval(np.asarray(fit["coeff_b"], dtype=float), z)
+    return np.stack([R, G, B], axis=1)
+
+
+def plot_rgb_fit_3d(
+    rgb_map: Dict[int, List[Tuple[float, float, float]]],
+    fit: Dict[str, Any],
+    output_dir: str,
+    filename: str = "all_rgb_3d_fit.png",
+    n_curve: int = 200
+) -> None:
+    """
+    3D scatter of samples + fitted 7th-order RGB(T) curve.
+    The curve is colorized by its own RGB.
+    """
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Gather raw points
+    pts = [rgb for samples in rgb_map.values() for rgb in samples]
+    if pts:
+        pts = np.asarray(pts, dtype=float)
+    else:
+        pts = np.empty((0, 3))
+
+    # Build temperature grid over the observed range
+    tmin, tmax = fit["domain"]
+    Tgrid = np.linspace(tmin, tmax, n_curve)
+    curve = eval_rgb_fit(fit, Tgrid)
+    curve_clipped = np.clip(curve, 0, 255)
+    curve_colors = (curve_clipped / 255.0).clip(0, 1)
+
+    fig = plt.figure(figsize=(8, 7))
+    ax = fig.add_subplot(111, projection="3d")
+
+    # scatter raw points
+    if pts.size:
+        ax.scatter(pts[:, 0], pts[:, 1], pts[:, 2],
+                   c=(pts / 255.0).clip(0, 1),
+                   s=16, depthshade=False, alpha=0.6, label="Samples")
+
+    # fitted curve
+    ax.plot(curve_clipped[:, 0], curve_clipped[:, 1], curve_clipped[:, 2],
+            linewidth=2.0, label=f"Poly fit (deg {fit['order']})", color=None)
+
+    # To color the path by its own RGB, overplot small segments
+    for i in range(len(curve_clipped) - 1):
+        seg = curve_clipped[i:i+2]
+        ax.plot(seg[:, 0], seg[:, 1], seg[:, 2], linewidth=2.0, color=curve_colors[i])
+
+    ax.set_xlabel("R")
+    ax.set_ylabel("G")
+    ax.set_zlabel("B")
+    ax.set_xlim(0, 255); ax.set_ylim(0, 255); ax.set_zlim(0, 255)
+    ax.set_box_aspect((1, 1, 1))
+    ax.set_title(f"RGB 3D with 7th-order fit (n={fit['n_points']})")
+    ax.legend(loc="upper left")
+
+    plt.tight_layout()
+    out_path = Path(output_dir) / filename
+    plt.savefig(out_path, dpi=300)
+    plt.close(fig)
+
+
+def make_temperature_scale(
+    fit: Dict[str, any],
+    output_dir: str,
+    filename: str = "temperature_scale.png",
+    width: int = 1200,
+    height: int = 80,
+    n_steps: int = 500) -> str:
+
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+    tmin, tmax = float(fit["domain"][0]), float(fit["domain"][1])
+
+    # Sample temperatures and evaluate RGB
+    T_steps = np.linspace(tmin, tmax, n_steps)
+    rgb_steps = np.clip(eval_rgb_fit(fit, T_steps), 0, 255)
+
+    x_pos = np.linspace(0, n_steps - 1, width)
+    r = np.interp(x_pos, np.arange(n_steps), rgb_steps[:, 0])
+    g = np.interp(x_pos, np.arange(n_steps), rgb_steps[:, 1])
+    b = np.interp(x_pos, np.arange(n_steps), rgb_steps[:, 2])
+    row = np.stack([b, g, r], axis=1).astype(np.uint8)  # BGR for OpenCV
+    img = np.tile(row[None, :, :], (height, 1, 1))
+
+    out_path = str(Path(output_dir) / filename)
+    cv2.imwrite(out_path, img)
+    return out_path
+
+
+def plot_rgb_fit_cie1931(
+    rgb_map: Dict[int, List[Tuple[float, float, float]]],
+    fit: Dict[str, Any],
+    output_dir: str,
+    filename: str = "all_rgb_cie1931_with_fit.png",
+    n_curve: int = 300
+) -> None:
+    """
+    CIE 1931 plot of sample points + fitted RGB(T) curve coloured by its own RGB.
+    """
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    # Samples
+    labels, all_rgb = [], []
+    for temp, samples in rgb_map.items():
+        for rgb in samples:
+            labels.append(str(temp))
+            all_rgb.append(rgb)
+
+    # Evaluate fit
+    tmin, tmax = float(fit["domain"][0]), float(fit["domain"][1])
+    Tgrid = np.linspace(tmin, tmax, n_curve)
+    curve_rgb = np.clip(eval_rgb_fit(fit, Tgrid), 0, 255)
+
+    # Convert to xy
+    if all_rgb:
+        rgb_s = (np.asarray(all_rgb, dtype=float) / 255.0).clip(0, 1)
+        XYZ_s = colour.sRGB_to_XYZ(rgb_s)
+        xy_s = colour.XYZ_to_xy(XYZ_s)
+    else:
+        xy_s = np.empty((0, 2))
+
+    rgb_c = (curve_rgb / 255.0).clip(0, 1)
+    XYZ_c = colour.sRGB_to_XYZ(rgb_c)
+    xy_c = colour.XYZ_to_xy(XYZ_c)
+
+    # Plot
+    fig, ax = plt.subplots(figsize=(8, 8))
+    cl.plot_chromaticity_diagram_CIE1931(
+        cmfs="CIE 1931 2 Degree Standard Observer",
+        axes=ax, show=False, title=None,
+        spectral_locus_colours="RGB", spectral_locus_markers=None,
+    )
+
+    # Rec.709 gamut outline
+    def plot_gamut(ax_, primaries, white, label, color):
+        poly = np.vstack([primaries, primaries[0]])
+        ax_.plot(poly[:, 0], poly[:, 1], color=color, linewidth=1.2, label=label, zorder=40)
+        ax_.plot(white[0], white[1], "o", color=color, markersize=4, zorder=41)
+
+    rec709_primaries = np.array([[0.640, 0.330],
+                                 [0.300, 0.600],
+                                 [0.150, 0.060]])
+    white = (0.3127, 0.3290)
+    plot_gamut(ax, rec709_primaries, white, "Rec.709 / sRGB", "blue")
+
+    # Axes
+    ax.set_xlim(0.0, 0.80)
+    ax.set_ylim(0.0, 0.90)
+    ax.set_aspect("equal", adjustable="box")
+    ax.xaxis.set_major_locator(tck.MultipleLocator(0.1))
+    ax.xaxis.set_minor_locator(tck.MultipleLocator(0.01))
+    ax.yaxis.set_major_locator(tck.MultipleLocator(0.1))
+    ax.yaxis.set_minor_locator(tck.MultipleLocator(0.01))
+    ax.grid(True, which="major", linestyle="--", linewidth=0.8, alpha=0.8)
+    ax.grid(True, which="minor", linestyle=":", linewidth=0.6, alpha=0.4)
+
+    # Samples
+    if xy_s.size:
+        ax.scatter(xy_s[:, 0], xy_s[:, 1], c=rgb_s, s=14, alpha=0.9, edgecolors="none", zorder=30)
+        for (xv, yv), lbl in zip(xy_s, labels):
+            ax.text(xv, yv, lbl, fontsize=6, ha="left", va="bottom",
+                    clip_on=True, path_effects=[pe.withStroke(linewidth=1, foreground="white")],
+                    zorder=99)
+
+    # Fitted curve (colorized segments by its own RGB)
+    for i in range(len(xy_c) - 1):
+        seg = xy_c[i:i+2]
+        ax.plot(seg[:, 0], seg[:, 1], linewidth=2.0, color=rgb_c[i], zorder=60)
+    # Optional endpoints markers
+    ax.plot(xy_c[[0, -1], 0], xy_c[[0, -1], 1], "o", markersize=3, color="k", zorder=61)
+
+    ax.set_title(f"CIE 1931 – Samples + Fit (deg {fit['order']})", fontsize=16)
+    ax.set_xlabel("x", fontsize=14)
+    ax.set_ylabel("y", fontsize=14)
+    plt.tight_layout()
+    out_path = Path(output_dir) / filename
+    plt.savefig(out_path, dpi=300)
+    plt.close(fig)
+
+
+def main():
+    input_file = "./bilder_wetterkarten_de_2025/tag-2025-07-01.webp"
+    input_dir = "./bilder_wetterkarten_de_2025/"
+    output_dir = "./output/"
+
+#    img_result, rgb_map = process_file(input_file, output_dir, average_rgb_map=True, debug=True)
+
+    if not os.path.exists(os.path.join(output_dir, "aggregated_rgb_map.json")):
+        rgb_map = process_folder(input_dir, output_dir, debug=False)
+        save_rgb_map(os.path.join(output_dir, "aggregated_rgb_map.json"), rgb_map)
     else:
         rgb_map = load_rgb_map(json_path)
         per_file = load_per_file_rgb_map(per_file_path)
@@ -1359,6 +1597,26 @@ def main():
             filename=f"wahrnehmung_uniformitaet_V{v}.png",
             title=f"Wahrnehmungsbasierte Uniformitätsanalyse — {label}")
 
+    # 3d Chart with all temp values
+    order = 7
+    fit = fit_rgb_polynomial(rgb_map, order)
+    save_rgb_fit(os.path.join(output_dir, f"all_rgb_fit_deg{order}.json"), fit)
+    plot_rgb_fit_3d(rgb_map, fit, output_dir=output_dir, filename=f"all_rgb_3d_deg{order}_fit.png", n_curve=200)
+    make_temperature_scale(
+        fit,
+        output_dir=output_dir,
+        filename=f"all_temperature_scale_deg{order}.png",
+        width=1200,
+        height=80,
+        n_steps=500)
+
+    plot_all_rgb_cie1931(rgb_map, output_dir="./output")
+    plot_rgb_fit_cie1931(
+        rgb_map, fit,
+        output_dir=output_dir,
+        filename=f"all_rgb_cie1931_with_fit_deg{order}.png",
+        n_curve=300
+    )
 
 if __name__ == "__main__":
     main()

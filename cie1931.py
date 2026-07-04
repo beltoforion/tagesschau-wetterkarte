@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 from pathlib import Path
 from PIL import Image
@@ -11,7 +12,7 @@ import colour.plotting as cl
 from colour.colorimetry import MSDS_CMFS
 
 
-def process_image(image_path, output_dir, sample=500000):
+def process_image(image_path : Path, output_dir : Path, sample : int = 500000):
     """Verarbeitet ein einzelnes Bild und speichert das Diagramm ins Output-Verzeichnis."""
     img = Image.open(image_path).convert("RGB")
     arr = np.asarray(img, dtype=float) / 255.0
@@ -58,7 +59,9 @@ def process_image(image_path, output_dir, sample=500000):
         poly = np.vstack([primaries, primaries[0]])
         ax.plot(poly[:, 0], poly[:, 1], color=color, linewidth=1.2,
                 label=label, zorder=40)
-        ax.plot(white[0], white[1], "o", color=color, markersize=4, zorder=41)
+        
+        if white is not None:
+            ax.plot(white[0], white[1], "o", color=color, markersize=4, zorder=41)
 
     # Gammuts definieren
     pal_primaries = np.array([[0.640, 0.330],
@@ -74,15 +77,17 @@ def process_image(image_path, output_dir, sample=500000):
                              [0.288, 0.597],
                              [0.153, 0.070]])
 
-    white = (0.3127, 0.3290)
+#    white = (0.3127, 0.3290)
+    white = None
 
     plot_gamut(ax, pal_primaries, white, "PAL/EBU Zielfarbraum (TV)", "blue")
     plot_gamut(ax, rec709_primaries, white, "Rec.709 / sRGB (HDTV/Web)", "green")
     plot_gamut(ax, crt_primaries, white, "Avg. CRT Monitor", "yellow")
-#    plot_gamut(ax, p3_primaries, white, "Display P3 (Apple / OLED)", "blue")
+    plot_gamut(ax, p3_primaries, white, "Display P3 (Apple / OLED)", "blue")
 
     basename = Path(image_path).stem
     ax.set_title(f"CIE 1931 Farbdiagramm – Pixelverteilung von ‚{basename}‘", fontsize=16)
+#    ax.set_title(f"CIE 1931 Farbdiagramm", fontsize=16)
 
     # Achsenformatierung
     ax.set_xlabel("x (2°) Farbkoordinate", fontsize=14)
@@ -105,7 +110,7 @@ def process_image(image_path, output_dir, sample=500000):
     plt.tight_layout()
 
     # Speicherpfad im Output-Verzeichnis
-    save_path = Path(output_dir) / f"{basename}_cie1932.png"
+    save_path = Path(output_dir) / f"{basename}_cie1931.png"
     plt.savefig(save_path, dpi=300)
     plt.close(fig)  # Speicher freigeben
 

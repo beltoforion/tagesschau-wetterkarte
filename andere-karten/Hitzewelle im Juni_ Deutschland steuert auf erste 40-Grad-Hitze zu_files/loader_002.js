@@ -1,0 +1,1 @@
+(function(){var s=document.createElement('script');s.async=true;s.src="https://r.nativendo.de/v1/reco.js?v=1d5228f35df1";s.setAttribute('data-publisher',"");s.setAttribute('data-endpoint',"https://r.nativendo.de");(document.head||document.documentElement).appendChild(s);})();
