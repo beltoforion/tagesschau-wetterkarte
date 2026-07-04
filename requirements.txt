@@ -4,3 +4,4 @@ matplotlib
 colour-science
 opencv-python
 pytesseract
+scipy
