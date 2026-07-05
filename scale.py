@@ -6,7 +6,8 @@ Ablauf:
   3. Die Zuordnung Temperatur -> RGB wird ueber alle Bilder aggregiert und als
      JSON-Datei (aggregated_rgb_map.json) gespeichert bzw. daraus geladen.
   4. Aus den aggregierten Daten wird die Farbskala berechnet (Median je Grad)
-     und je Farbkanal eine Ausgleichskurve (Polynom) durch die Punkte gelegt.
+     und eine Ausgleichskurve (Glaettungsspline im CIELAB-Raum) durch die
+     Punkte gelegt.
   5. Visualisierung: CIE-1931-Chromatizitaetsdiagramm sowie 3D-RGB-Diagramm
      mit allen Messpunkten und der Ausgleichskurve.
 """
@@ -354,48 +355,28 @@ def compute_color_scale(rgb_map: Dict[int, List[Tuple[float, float, float]]]) ->
     return temps, rgb
 
 
-def fit_color_curve(temps: np.ndarray, rgb: np.ndarray, degree: int = 6) -> Tuple[np.ndarray, np.ndarray]:
-    """Legt eine Ausgleichskurve durch die Punkte der Farbskala.
+def fit_color_spline_lab(temps: np.ndarray, rgb: np.ndarray, sigma: float = 2.0) -> Tuple[np.ndarray, np.ndarray]:
+    """Legt eine glaettende Ausgleichskurve im CIELAB-Raum durch die Skalenpunkte.
 
-    Je Farbkanal (R, G, B) wird ein Polynom vom Grad `degree` per
-    Fehlerquadratmethode an die Stuetzpunkte angepasst und auf einem feinen
-    Temperaturraster ausgewertet. Zusammen ergeben die drei Kanalpolynome
-    eine glatte Kurve durch den RGB-Farbraum.
-
-    Args:
-        temps: Temperaturen der Stuetzpunkte.
-        rgb: (N, 3)-Array der Stuetzpunktfarben.
-        degree: Polynomgrad je Farbkanal.
-
-    Returns:
-        Tupel (t_fine, rgb_fine): feines Temperaturraster und die darauf
-        ausgewertete Kurve als (M, 3)-Array, auf [0, 255] begrenzt.
-    """
-    degree = max(1, min(degree, len(temps) - 1))
-    t_fine = np.linspace(temps.min(), temps.max(), 200)
-    rgb_fine = np.empty((t_fine.size, 3))
-    for ch in range(3):
-        coeffs = np.polyfit(temps, rgb[:, ch], deg=degree)
-        rgb_fine[:, ch] = np.polyval(coeffs, t_fine)
-    return t_fine, np.clip(rgb_fine, 0.0, 255.0)
-
-
-def fit_color_spline(temps: np.ndarray, rgb: np.ndarray, sigma: float = 10.0) -> Tuple[np.ndarray, np.ndarray]:
-    """Legt eine glaettende Spline-Ausgleichskurve durch die Skalenpunkte.
-
-    Je Farbkanal wird ein kubischer Glaettungsspline (Reinsch 1967,
-    scipy UnivariateSpline) angepasst. Der Glaettungsfaktor s = N * sigma²
+    Die Stuetzpunktfarben werden nach CIELAB transformiert; dort wird je
+    Kanal (L*, a*, b*) ein kubischer Glaettungsspline (Reinsch 1967,
+    scipy UnivariateSpline) ueber die Temperatur gelegt und das Ergebnis
+    zurueck nach sRGB gewandelt. Der Glaettungsfaktor s = N * sigma²
     entspricht einer angenommenen Streuung der Stuetzpunkte von etwa
-    `sigma` RGB-Einheiten — die Kurve gleicht also aus, statt zu
-    interpolieren. Gegenueber dem globalen Ausgleichspolynom aus
-    fit_color_curve() verhaelt sich der Spline bei Messluecken gutmuetig
-    (kein Ueberschwingen weit ueber den Wertebereich), daher wird er fuer
-    die Einzelkarten-Darstellungen verwendet.
+    `sigma` Lab-Einheiten (~dE*ab) — die Kurve gleicht also aus, statt zu
+    interpolieren.
+
+    Gegenueber einem globalen Ausgleichspolynom je RGB-Kanal ist der
+    Spline lokal: kein Wackeln zwischen den Stuetzpunkten (Runge-Effekt)
+    und kein Ueberschwingen an den Raendern. Die Glaettung im
+    wahrnehmungsuniformen Lab-Raum dosiert zudem ueberall gleich stark
+    in Einheiten des Farbabstands — konsistent zur dE00-basierten
+    Uniformitaetsanalyse.
 
     Args:
         temps: Temperaturen der Stuetzpunkte (aufsteigend).
-        rgb: (N, 3)-Array der Stuetzpunktfarben.
-        sigma: Angenommene Streuung der Stuetzpunkte in RGB-Einheiten.
+        rgb: (N, 3)-Array der Stuetzpunktfarben (0-255).
+        sigma: Angenommene Streuung der Stuetzpunkte in Lab-Einheiten.
 
     Returns:
         Tupel (t_fine, rgb_fine): feines Temperaturraster und die darauf
@@ -403,13 +384,17 @@ def fit_color_spline(temps: np.ndarray, rgb: np.ndarray, sigma: float = 10.0) ->
     """
     from scipy.interpolate import UnivariateSpline
 
+    lab = colour.XYZ_to_Lab(colour.sRGB_to_XYZ(np.clip(rgb / 255.0, 0, 1)))
+
     k = min(3, len(temps) - 1)
     t_fine = np.linspace(temps.min(), temps.max(), 200)
-    rgb_fine = np.empty((t_fine.size, 3))
+    lab_fine = np.empty((t_fine.size, 3))
     for ch in range(3):
-        spline = UnivariateSpline(temps, rgb[:, ch], k=k, s=len(temps) * sigma ** 2)
-        rgb_fine[:, ch] = spline(t_fine)
-    return t_fine, np.clip(rgb_fine, 0.0, 255.0)
+        spline = UnivariateSpline(temps, lab[:, ch], k=k, s=len(temps) * sigma ** 2)
+        lab_fine[:, ch] = spline(t_fine)
+
+    rgb_fine = colour.XYZ_to_sRGB(colour.Lab_to_XYZ(lab_fine))
+    return t_fine, np.clip(rgb_fine, 0.0, 1.0) * 255.0
 
 
 def build_samples(per_file: Dict[str, Dict[int, List[Tuple[float, float, float]]]]) -> List[dict]:
@@ -620,7 +605,7 @@ def plot_map_panel(name: str,
     """Erstellt das Drei-Panel-Bild fuer eine einzelne Wetterkarte.
 
     Links: CIE-1931-Chromatizitaetsdiagramm mit den Temperaturwerten.
-    Mitte: 3D-RGB-Darstellung mit Ausgleichskurve (glaettender Spline).
+    Mitte: 3D-RGB-Darstellung mit Ausgleichskurve (Glaettungsspline in CIELAB).
     Rechts: die aus der Kurve abgeleitete Farbskala als vertikaler
     Farbbalken ueber der Temperaturachse.
 
@@ -633,7 +618,10 @@ def plot_map_panel(name: str,
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     temps, scale_rgb = compute_color_scale(rgb_map)
-    t_fine, rgb_fine = fit_color_spline(temps, scale_rgb)
+    # Einzelkarten haben wenige, teils fehlerbehaftete Stuetzpunkte
+    # (Median aus oft nur einer Messung) — staerker glaetten als beim
+    # aggregierten Datensatz, sonst schlaegt die Kurve Schleifen
+    t_fine, rgb_fine = fit_color_spline_lab(temps, scale_rgb, sigma=6.0)
 
     # Breite knapp am Inhalt halten: das CIE-Diagramm hat ein festes
     # Seitenverhaeltnis und fuellt einen breiteren Slot nicht aus, die
@@ -698,7 +686,8 @@ def plot_scales_overview(per_file: Dict[str, Dict[int, List[Tuple[float, float, 
         if not rgb_map:
             continue
         temps, scale_rgb = compute_color_scale(rgb_map)
-        t_fine, rgb_fine = fit_color_spline(temps, scale_rgb)
+        # wie in plot_map_panel(): Einzelkarten staerker glaetten
+        t_fine, rgb_fine = fit_color_spline_lab(temps, scale_rgb, sigma=6.0)
         scales.append((name, t_fine, rgb_fine))
     scales.sort(key=lambda e: float(e[1].min()))
 
@@ -1243,7 +1232,7 @@ def main():
 
     # Farbskala (Median je Grad) und Ausgleichskurve berechnen
     temps, scale_rgb = compute_color_scale(rgb_map)
-    t_fine, rgb_fine = fit_color_curve(temps, scale_rgb)
+    t_fine, rgb_fine = fit_color_spline_lab(temps, scale_rgb)
 
     print("Farbskala (Median je °C):")
     for t, (r, g, b) in zip(temps, scale_rgb):
@@ -1332,7 +1321,7 @@ def main():
         ref_map[int(s["temp"])].append(tuple(s["rgb"]))
 
     temps_r, scale_r = compute_color_scale(ref_map)
-    t_fine_r, rgb_fine_r = fit_color_curve(temps_r, scale_r)
+    t_fine_r, rgb_fine_r = fit_color_spline_lab(temps_r, scale_r)
     result_r = analyze_perceptual_uniformity(temps_r, scale_r, ref_map)
     print_uniformity_report(result_r, "Uniformitätsanalyse — Referenzskala (offset-korrigiert, alle Bilder)")
     plot_color_scale_bar(temps_r, scale_r, t_fine_r, rgb_fine_r,
@@ -1358,7 +1347,7 @@ def main():
             continue
 
         temps_v, scale_v = compute_color_scale(v_map)
-        t_fine_v, rgb_fine_v = fit_color_curve(temps_v, scale_v)
+        t_fine_v, rgb_fine_v = fit_color_spline_lab(temps_v, scale_v)
         result_v = analyze_perceptual_uniformity(temps_v, scale_v, v_map)
         print_uniformity_report(result_v, f"Uniformitätsanalyse — {label}")
         plot_color_scale_bar(temps_v, scale_v, t_fine_v, rgb_fine_v,
