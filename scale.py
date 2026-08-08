@@ -355,16 +355,31 @@ def compute_color_scale(rgb_map: Dict[int, List[Tuple[float, float, float]]]) ->
     return temps, rgb
 
 
-def fit_color_spline_lab(temps: np.ndarray, rgb: np.ndarray, sigma: float = 2.0) -> Tuple[np.ndarray, np.ndarray]:
+def fit_color_spline_lab(temps: np.ndarray, rgb: np.ndarray, sigma: float = 4.0,
+                         counts: np.ndarray = None,
+                         n_iter: int = 4) -> Tuple[np.ndarray, np.ndarray]:
     """Legt eine glaettende Ausgleichskurve im CIELAB-Raum durch die Skalenpunkte.
 
     Die Stuetzpunktfarben werden nach CIELAB transformiert; dort wird je
     Kanal (L*, a*, b*) ein kubischer Glaettungsspline (Reinsch 1967,
     scipy UnivariateSpline) ueber die Temperatur gelegt und das Ergebnis
-    zurueck nach sRGB gewandelt. Der Glaettungsfaktor s = N * sigma²
-    entspricht einer angenommenen Streuung der Stuetzpunkte von etwa
-    `sigma` Lab-Einheiten (~dE*ab) — die Kurve gleicht also aus, statt zu
-    interpolieren.
+    zurueck nach sRGB gewandelt. Der Glaettungsfaktor entspricht einer
+    angenommenen Streuung der Stuetzpunkte von etwa `sigma` Lab-Einheiten
+    (~dE*ab) — die Kurve gleicht also aus, statt zu interpolieren.
+
+    Drei Massnahmen halten die Kurve ruhig, obwohl die Stuetzpunkte
+    geclustert sind (die Skala ist gebandet, mehrere °C tragen fast
+    dieselbe Farbe) und einzelne Mediane weit abliegen:
+
+    * Robuste Neugewichtung (IRLS mit Huber-Gewichten auf den
+      Lab-Residuen): Ausreisser-Mediane werden heruntergewichtet und
+      ziehen die Kurve nicht mehr zu Schleifen und Wacklern.
+    * Optionale Gewichtung mit sqrt(n) je Stuetzpunkt (`counts`):
+      duenn belegte Temperaturen (oft nur 1-2 Messungen an den
+      Skalenraendern) bestimmen die Kurve schwaecher als gut belegte.
+    * Verankerte Endpunkte: erster und letzter Stuetzpunkt erhalten
+      hohes Gewicht, damit die stark geglaettete Kurve an den Raendern
+      nicht ueberschiesst und aus dem sRGB-Gamut laeuft.
 
     Gegenueber einem globalen Ausgleichspolynom je RGB-Kanal ist der
     Spline lokal: kein Wackeln zwischen den Stuetzpunkten (Runge-Effekt)
@@ -377,6 +392,8 @@ def fit_color_spline_lab(temps: np.ndarray, rgb: np.ndarray, sigma: float = 2.0)
         temps: Temperaturen der Stuetzpunkte (aufsteigend).
         rgb: (N, 3)-Array der Stuetzpunktfarben (0-255).
         sigma: Angenommene Streuung der Stuetzpunkte in Lab-Einheiten.
+        counts: Anzahl Messungen je Stuetzpunkt (None = gleichgewichtet).
+        n_iter: Anzahl der robusten Neugewichtungs-Iterationen.
 
     Returns:
         Tupel (t_fine, rgb_fine): feines Temperaturraster und die darauf
@@ -388,11 +405,30 @@ def fit_color_spline_lab(temps: np.ndarray, rgb: np.ndarray, sigma: float = 2.0)
 
     k = min(3, len(temps) - 1)
     t_fine = np.linspace(temps.min(), temps.max(), 200)
-    lab_fine = np.empty((t_fine.size, 3))
-    for ch in range(3):
-        spline = UnivariateSpline(temps, lab[:, ch], k=k, s=len(temps) * sigma ** 2)
-        lab_fine[:, ch] = spline(t_fine)
 
+    w_n = np.sqrt(np.asarray(counts, dtype=float)) if counts is not None else np.ones(len(temps))
+    w_n = w_n / w_n.mean()
+    w_n[0] *= 5.0
+    w_n[-1] *= 5.0
+
+    w_r = np.ones(len(temps))
+    splines = None
+    for _ in range(max(1, n_iter)):
+        # s ist auf die Gewichtsdefinition von UnivariateSpline abgestimmt:
+        # mit w ~ sqrt(n) hat jedes gewichtete Residuum die Erwartung sigma,
+        # die robusten Gewichte reduzieren das Budget entsprechend.
+        s = np.sum(w_r ** 2) * sigma ** 2
+        w = w_n * w_r
+        splines = [UnivariateSpline(temps, lab[:, ch], w=w, k=k, s=s) for ch in range(3)]
+        lab_hat = np.stack([sp(temps) for sp in splines], axis=1)
+        residual = np.linalg.norm(lab - lab_hat, axis=1)
+        # Huber-Gewichte auf Basis des MAD; Untergrenze 0.3, damit kein
+        # Stuetzpunkt vollstaendig verworfen wird
+        spread = max(1.4826 * float(np.median(residual)), 1.0)
+        u = residual / (1.345 * spread)
+        w_r = np.maximum(np.where(u > 1.0, 1.0 / u, 1.0), 0.3)
+
+    lab_fine = np.stack([sp(t_fine) for sp in splines], axis=1)
     rgb_fine = colour.XYZ_to_sRGB(colour.Lab_to_XYZ(lab_fine))
     return t_fine, np.clip(rgb_fine, 0.0, 1.0) * 255.0
 
@@ -418,184 +454,6 @@ def build_samples(per_file: Dict[str, Dict[int, List[Tuple[float, float, float]]
     for s, lab in zip(samples, all_lab):
         s["lab"] = lab
     return samples
-
-
-def cluster_palette(samples: List[dict], de_threshold: float = 5.0) -> np.ndarray:
-    """Clustert alle Messfarben zur diskreten Bandpalette der Skala.
-
-    Die Tagesschau-Skala besteht aus einer festen Sequenz von Farbbaendern,
-    die als Ganzes in Temperaturrichtung verschoben wird. Agglomeratives
-    Clustering (average linkage) ueber die paarweisen CIEDE2000-Distanzen
-    fasst alle Messungen desselben Bandes zusammen; die Schwelle liegt
-    deutlich ueber der Messstreuung (~1-3 dE00) und deutlich unter dem
-    Abstand benachbarter Baender (~10+ dE00).
-
-    Die Baender werden anschliessend entlang der Skala geordnet: In jedem
-    Einzelbild ist die Bandfolge nach Temperatur sortiert eindeutig; die
-    globale Ordnung ergibt sich als mittlerer normierter Rang ueber alle
-    Bilder (Borda-Zaehlung).
-
-    Args:
-        samples: Messwert-Liste aus build_samples(); jedes Element erhaelt
-            den Schluessel "band" (Index in Skalenreihenfolge).
-        de_threshold: Cluster-Schwelle in dE00.
-
-    Returns:
-        (K, 3)-Array der Bandfarben (Median-RGB je Band) in
-        Skalenreihenfolge (kalt -> warm).
-    """
-    from scipy.cluster.hierarchy import linkage, fcluster
-    from scipy.spatial.distance import squareform
-
-    lab = np.array([s["lab"] for s in samples])
-    n = len(lab)
-
-    dist = np.zeros((n, n))
-    for i in range(n):
-        dist[i] = colour.delta_E(np.broadcast_to(lab[i], lab.shape), lab, method="CIE 2000")
-    dist = (dist + dist.T) / 2.0  # numerische Symmetrie
-
-    Z = linkage(squareform(dist, checks=False), method="average")
-    raw_labels = fcluster(Z, t=de_threshold, criterion="distance")
-
-    # Bandreihenfolge per Borda-Zaehlung ueber die Einzelbilder
-    ranks: Dict[int, List[float]] = defaultdict(list)
-    files = sorted({s["file"] for s in samples})
-    for fn in files:
-        idx = [i for i, s in enumerate(samples) if s["file"] == fn]
-        # Baender dieses Bildes nach mittlerer Temperatur sortieren
-        band_temp: Dict[int, List[float]] = defaultdict(list)
-        for i in idx:
-            band_temp[raw_labels[i]].append(samples[i]["temp"])
-        order = sorted(band_temp, key=lambda b: np.median(band_temp[b]))
-        for r, b in enumerate(order):
-            ranks[b].append(r / max(1, len(order) - 1))
-
-    ordered = sorted(ranks, key=lambda b: np.mean(ranks[b]))
-    band_index = {b: i for i, b in enumerate(ordered)}
-    for s, lbl in zip(samples, raw_labels):
-        s["band"] = band_index[int(lbl)]
-
-    rgb = np.array([s["rgb"] for s in samples])
-    bands = np.array([s["band"] for s in samples])
-    return np.array([np.median(rgb[bands == k], axis=0) for k in range(len(ordered))])
-
-
-def estimate_scale_offsets(samples: List[dict], n_iter: int = 10) -> Tuple[Dict[str, float], Dict[int, float]]:
-    """Schaetzt je Bild die Temperatur-Verschiebung der Farbskala.
-
-    Modell: Bild i verwendet die Referenzskala um delta_i Grad verschoben,
-    d.h. Band b deckt dort die Temperaturen T_ref(b) + delta_i ab. Die
-    Schaetzung erfolgt durch alternierende Median-Minimierung (robust
-    gegen einzelne OCR-Fehlmessungen):
-
-        T_ref(b)  = Median ueber alle Messungen von (T - delta_datei)
-        delta_i   = Median ueber Bild i von (T - T_ref(band))
-
-    Abschliessend werden die Offsets so zentriert, dass der haeufigste
-    Offset bei 0 liegt (Referenzvariante).
-
-    Args:
-        samples: Messwert-Liste mit Bandzuordnung (aus cluster_palette()).
-        n_iter: Anzahl Iterationen der alternierenden Minimierung.
-
-    Returns:
-        Tupel (offsets, t_ref): offsets als Dateiname -> Verschiebung in °C,
-        t_ref als Band -> Referenztemperatur.
-    """
-    files = sorted({s["file"] for s in samples})
-    delta = {fn: 0.0 for fn in files}
-
-    for _ in range(n_iter):
-        band_vals: Dict[int, List[float]] = defaultdict(list)
-        for s in samples:
-            band_vals[s["band"]].append(s["temp"] - delta[s["file"]])
-        t_ref = {b: float(np.median(v)) for b, v in band_vals.items()}
-
-        for fn in files:
-            resid = [s["temp"] - t_ref[s["band"]] for s in samples if s["file"] == fn]
-            delta[fn] = float(np.median(resid))
-
-    # Zentrieren: haeufigster Offset (Modus auf 1-°C-Raster) wird zu 0
-    vals = np.array(list(delta.values()))
-    grid = np.round(vals)
-    mode = float(np.bincount((grid - grid.min()).astype(int)).argmax() + grid.min())
-    delta = {fn: v - mode for fn, v in delta.items()}
-    t_ref = {b: v + mode for b, v in t_ref.items()}
-    return delta, t_ref
-
-
-def group_scale_variants(offsets: Dict[str, float], gap: float = 0.75) -> Dict[str, int]:
-    """Gruppiert die Bilder anhand ihrer Skalen-Offsets zu Varianten.
-
-    Die sortierten Offsets werden an Luecken groesser als `gap` Grad
-    getrennt; jede Gruppe ist eine Skalenvariante. Die Offsets sind in den
-    Daten auf ganze Grad quantisiert (die Redaktion verschiebt die Skala
-    in 1-°C-Schritten), daher liegt die Schwelle unter 1 °C, damit auch
-    benachbarte Verschiebungen getrennt werden.
-
-    Args:
-        offsets: Dateiname -> Offset in °C.
-        gap: Mindestabstand zwischen zwei Varianten in °C.
-
-    Returns:
-        Zuordnung Dateiname -> Variantennummer (0 = kaelteste Variante).
-    """
-    by_offset = sorted(offsets.items(), key=lambda kv: kv[1])
-    variant: Dict[str, int] = {}
-    v = 0
-    for i, (fn, d) in enumerate(by_offset):
-        if i > 0 and d - by_offset[i - 1][1] > gap:
-            v += 1
-        variant[fn] = v
-    return variant
-
-
-def plot_scale_variants(samples: List[dict],
-                        offsets: Dict[str, float],
-                        variants: Dict[str, int],
-                        output_dir: str,
-                        filename: str = "skalenvarianten.png") -> None:
-    """Visualisiert die erkannten Skalenvarianten.
-
-    Linkes Panel: je Bild (Zeile, nach Offset sortiert) die Messfarben an
-    ihrer gemessenen Temperatur — die Verschiebung der Skala ist direkt
-    sichtbar. Rechtes Panel: dieselben Daten nach Abzug des geschaetzten
-    Offsets — die Zeilen kollabieren auf eine gemeinsame Referenzskala.
-
-    Args:
-        samples: Messwert-Liste mit Bandzuordnung.
-        offsets: Dateiname -> Offset in °C.
-        variants: Dateiname -> Variantennummer.
-        output_dir: Ausgabeverzeichnis.
-        filename: Dateiname der Grafik.
-    """
-    Path(output_dir).mkdir(parents=True, exist_ok=True)
-
-    files = sorted(offsets, key=lambda fn: (offsets[fn], fn))
-    y_of = {fn: i for i, fn in enumerate(files)}
-
-    fig, (ax_l, ax_r) = plt.subplots(1, 2, figsize=(16, 0.35 * len(files) + 2.5), sharey=True)
-
-    for ax, shifted in ((ax_l, False), (ax_r, True)):
-        for s in samples:
-            x = s["temp"] - (offsets[s["file"]] if shifted else 0.0)
-            ax.scatter(x, y_of[s["file"]], color=np.clip(s["rgb"] / 255.0, 0, 1),
-                       s=90, marker="s", edgecolors="black", linewidths=0.3)
-        ax.set_xlabel("Temperatur [°C]" if not shifted else "Temperatur − Offset [°C]")
-        ax.grid(True, axis="x", linestyle=":", alpha=0.5)
-    ax_l.set_title("gemessen (Skalen verschoben)", fontsize=11, loc="left")
-    ax_r.set_title("nach Offset-Korrektur (ausgerichtet)", fontsize=11, loc="left")
-
-    ax_l.set_yticks(range(len(files)))
-    ax_l.set_yticklabels([f"V{variants[fn]}  ({offsets[fn]:+.1f} °C)  {fn}" for fn in files],
-                         fontsize=7, family="monospace")
-    ax_l.invert_yaxis()
-
-    fig.suptitle("Skalenvarianten: Verschiebung der Farbskala je Bild", fontsize=13)
-    plt.tight_layout()
-    plt.savefig(Path(output_dir) / filename, dpi=200, bbox_inches="tight")
-    plt.close(fig)
 
 
 def plot_map_panel(name: str,
@@ -665,18 +523,26 @@ def plot_map_panel(name: str,
 
 def plot_scales_overview(per_file: Dict[str, Dict[int, List[Tuple[float, float, float]]]],
                          output_dir: str,
-                         filename: str = "farbskalen_uebersicht.png") -> None:
-    """Zeichnet alle Karten-Farbskalen untereinander in eine Uebersicht.
+                         filename: str = "farbskalen_uebersicht.png",
+                         highlight: str = "2026",
+                         title: str = None) -> None:
+    """Zeichnet alle Karten-Farbskalen nebeneinander in eine Uebersicht.
 
     Je Karte wird die aus der Ausgleichskurve abgeleitete Skala als
-    horizontaler Farbbalken ueber einer gemeinsamen Temperaturachse
+    vertikaler Farbbalken ueber einer gemeinsamen Temperaturachse (y)
     dargestellt. Sortiert wird nach dem Minimalwert der Skala; der Name
-    der Wetterkarte steht an jedem Balken.
+    der Wetterkarte steht unter jedem Balken. Karten, deren Dateiname
+    `highlight` enthaelt, bekommen eine duenne gestrichelte dunkelblaue
+    Linie hinter dem Balken und eine dunkelblaue Beschriftung — damit
+    laesst sich z.B. die Skalenverschiebung des Jahrgangs 2026 gegenueber
+    den uebrigen Karten hervorheben.
 
     Args:
         per_file: Zuordnung Dateiname -> {Temperatur -> Messwerte}.
         output_dir: Ausgabeverzeichnis.
         filename: Dateiname der Grafik.
+        highlight: Teilstring der hervorzuhebenden Dateinamen ("" = keine).
+        title: Diagrammtitel (None = Standardtitel).
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -694,28 +560,41 @@ def plot_scales_overview(per_file: Dict[str, Dict[int, List[Tuple[float, float, 
     if not scales:
         return
 
-    fig, ax = plt.subplots(figsize=(14, 0.45 * len(scales) + 2))
+    fig, ax = plt.subplots(figsize=(0.32 * len(scales) + 2.5, 10))
 
     for i, (name, t_fine, rgb_fine) in enumerate(scales):
-        gradient = np.clip(rgb_fine / 255.0, 0, 1)[np.newaxis, :, :]
-        ax.imshow(gradient, aspect="auto", interpolation="bilinear",
-                  extent=(float(t_fine.min()), float(t_fine.max()), i - 0.38, i + 0.38),
+        gradient = np.clip(rgb_fine / 255.0, 0, 1)[:, np.newaxis, :]
+        ax.imshow(gradient, aspect="auto", interpolation="bilinear", origin="lower",
+                  extent=(i - 0.38, i + 0.38, float(t_fine.min()), float(t_fine.max())),
                   zorder=3)
+        if highlight and highlight in name:
+            ax.axvline(x=i, color="navy", linestyle="--", linewidth=0.8,
+                       alpha=0.8, zorder=1)
 
     t_lo = min(float(tf.min()) for _, tf, _ in scales)
     t_hi = max(float(tf.max()) for _, tf, _ in scales)
-    ax.set_xlim(t_lo - 1, t_hi + 1)
-    ax.set_ylim(-0.6, len(scales) - 0.4)
-    ax.invert_yaxis()  # kleinster Minimalwert oben
+    ax.set_ylim(t_lo - 1, t_hi + 1)
+    ax.set_xlim(-0.6, len(scales) - 0.4)  # kleinster Minimalwert links
 
-    ax.set_yticks(range(len(scales)))
-    ax.set_yticklabels([name for name, _, _ in scales], fontsize=8, family="monospace")
-    ax.set_xlabel("Temperatur [°C]")
-    ax.xaxis.set_major_locator(tck.MultipleLocator(5))
-    ax.xaxis.set_minor_locator(tck.MultipleLocator(1))
-    ax.grid(True, axis="x", which="major", linestyle=":", alpha=0.6, zorder=0)
+    ax.set_xticks(range(len(scales)))
+    ax.set_xticklabels([name for name, _, _ in scales], fontsize=10,
+                       family="monospace", rotation=90)
+    if highlight:
+        for tick, (name, _, _) in zip(ax.get_xticklabels(), scales):
+            if highlight in name:
+                tick.set_color("navy")
+                tick.set_fontweight("bold")
+    ax.set_ylabel("Temperatur [°C]", fontsize=18)
+    ax.yaxis.set_major_locator(tck.MultipleLocator(5))
+    ax.yaxis.set_minor_locator(tck.MultipleLocator(1))
+    ax.tick_params(axis="y", labelsize=16)
+    # Temperaturwerte bei der grossen Bildbreite auch am rechten Rand anzeigen
+    ax.tick_params(axis="y", which="major", right=True, labelright=True)
+    ax.grid(True, axis="y", which="major", linestyle=":", alpha=0.6, zorder=0)
 
-    ax.set_title("Farbskalen aller Wetterkarten (sortiert nach Minimaltemperatur)", fontsize=13)
+    if title is None:
+        title = "Farbskalen aller Wetterkarten (sortiert nach Minimaltemperatur)"
+    ax.set_title(title, fontsize=18)
 
     plt.tight_layout()
     plt.savefig(Path(output_dir) / filename, dpi=200, bbox_inches="tight")
@@ -832,16 +711,18 @@ def plot_perceptual_uniformity(result: dict,
                                scale_rgb: np.ndarray,
                                output_dir: str,
                                filename: str = "wahrnehmung_uniformitaet.png",
-                               title: str = "Wahrnehmungsbasierte Uniformitätsanalyse der Farbskala") -> None:
+                               title: str = "Wahrnehmungsbasierte Uniformitätsanalyse der Farbskala",
+                               show_metrics: bool = False) -> None:
     """Visualisiert die Uniformitaetsanalyse der Farbskala.
 
-    Vier Panels ueber einer gemeinsamen Temperaturachse, darunter die
+    Drei Panels ueber einer gemeinsamen Temperaturachse, darunter die
     Farbskala als Kontextleiste:
       1. dE00 je 1-°C-Schritt (Balken in der Farbe des Schrittmittels) mit
          Bootstrap-Fehlerbalken, JND-Linie und Mittelwertlinie; Anomalien
          sind markiert (o = unter JND, ^ = Sprung > Mittel + 2 Std).
       2. Kumulative perzeptuelle Bogenlaenge S(T) mit linearer Referenz.
       3. Helligkeitsverlauf L*(T) (Monotonie-Check nach Kovesi).
+    Optional (show_metrics=True) zusaetzlich ein viertes Panel:
       4. Metrikvergleich dE76 / dE00 / CAM16-UCS, je auf ihren Mittelwert
          normiert (zeigt Modellunabhaengigkeit der Befunde).
 
@@ -852,6 +733,7 @@ def plot_perceptual_uniformity(result: dict,
         output_dir: Ausgabeverzeichnis.
         filename: Dateiname der Grafik.
         title: Gesamttitel der Grafik.
+        show_metrics: Metrikvergleichs-Panel mit ausgeben.
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
@@ -861,11 +743,18 @@ def plot_perceptual_uniformity(result: dict,
     # Farbe des Schrittmittels: Mittel der beiden angrenzenden Skalenfarben
     step_colors = np.clip((scale_rgb[:-1] + scale_rgb[1:]) / 2.0 / 255.0, 0, 1)
 
+    if show_metrics:
+        ratios, figsize = [3, 2.5, 2, 2.5, 0.5], (12, 14)
+    else:
+        ratios, figsize = [3, 2.5, 2, 0.5], (12, 11.5)
     fig, axes = plt.subplots(
-        5, 1, figsize=(12, 14), sharex=True,
-        gridspec_kw={"height_ratios": [3, 2.5, 2, 2.5, 0.5], "hspace": 0.3},
+        len(ratios), 1, figsize=figsize, sharex=True,
+        gridspec_kw={"height_ratios": ratios, "hspace": 0.3},
     )
-    ax1, ax2, ax3, ax4, ax_bar = axes
+    if show_metrics:
+        ax1, ax2, ax3, ax4, ax_bar = axes
+    else:
+        (ax1, ax2, ax3, ax_bar), ax4 = axes, None
 
     # Panel 1: dE00 je Schritt
     yerr = result["de00_std"] if np.any(result["de00_std"] > 0) else None
@@ -910,16 +799,17 @@ def plot_perceptual_uniformity(result: dict,
     ax3.set_ylabel("L*")
     ax3.set_title(f"Helligkeitsverlauf L*(T) — {mono}", fontsize=11, loc="left")
 
-    # Panel 4: Metrikvergleich (auf Mittelwert normiert)
-    for key, label, style in (("de76", "ΔE*ab (CIE 1976)", ":"),
-                              ("de00", "ΔE₀₀ (CIEDE2000)", "-"),
-                              ("de_cam16", "ΔE′ (CAM16-UCS)", "--")):
-        v = result[key]
-        ax4.plot(t_mid, v / v.mean(), style, linewidth=1.4, marker=".", label=label)
-    ax4.axhline(1.0, color="gray", linewidth=0.8)
-    ax4.set_ylabel("ΔE / Mittel")
-    ax4.legend(loc="upper right", fontsize=9)
-    ax4.set_title("Metrikvergleich (normiert)", fontsize=11, loc="left")
+    # Panel 4 (optional): Metrikvergleich (auf Mittelwert normiert)
+    if show_metrics:
+        for key, label, style in (("de76", "ΔE*ab (CIE 1976)", ":"),
+                                  ("de00", "ΔE₀₀ (CIEDE2000)", "-"),
+                                  ("de_cam16", "ΔE′ (CAM16-UCS)", "--")):
+            v = result[key]
+            ax4.plot(t_mid, v / v.mean(), style, linewidth=1.4, marker=".", label=label)
+        ax4.axhline(1.0, color="gray", linewidth=0.8)
+        ax4.set_ylabel("ΔE / Mittel")
+        ax4.legend(loc="upper right", fontsize=9)
+        ax4.set_title("Metrikvergleich (normiert)", fontsize=11, loc="left")
 
     # Kontextleiste: die Farbskala selbst
     for t, rgb in zip(temps, scale_rgb):
@@ -1073,7 +963,8 @@ def plot_color_scale_bar(temps: np.ndarray,
 
 def plot_all_rgb_cie1931(rgb_map: Dict[int, List[Tuple[float, float, float]]],
                          output_dir: str,
-                         filename: str = "all_rgb_cie1931.png") -> None:
+                         filename: str = "all_rgb_cie1931.png",
+                         rgb_fine: np.ndarray = None) -> None:
     """Zeichnet alle Messwerte in ein CIE-1931-Chromatizitaetsdiagramm.
 
     Die RGB-Werte werden als sRGB interpretiert, nach CIE-xy umgerechnet und
@@ -1084,11 +975,14 @@ def plot_all_rgb_cie1931(rgb_map: Dict[int, List[Tuple[float, float, float]]],
         rgb_map: Zuordnung Temperatur -> Liste von (R, G, B)-Messwerten.
         output_dir: Ausgabeverzeichnis.
         filename: Dateiname der Grafik.
+        rgb_fine: optional die bereits berechnete Ausgleichskurve als
+            (M, 3)-Array (0-255); wird nach CIE-xy projiziert und
+            eingezeichnet (keine Neuberechnung).
     """
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     fig, ax = plt.subplots(figsize=(8, 8))
-    n = draw_cie1931(ax, rgb_map)
+    n = draw_cie1931(ax, rgb_map, rgb_fine=rgb_fine)
     if n == 0:
         plt.close(fig)
         return
@@ -1101,12 +995,16 @@ def plot_all_rgb_cie1931(rgb_map: Dict[int, List[Tuple[float, float, float]]],
     plt.close(fig)
 
 
-def draw_cie1931(ax, rgb_map: Dict[int, List[Tuple[float, float, float]]]) -> int:
+def draw_cie1931(ax, rgb_map: Dict[int, List[Tuple[float, float, float]]],
+                 rgb_fine: np.ndarray = None) -> int:
     """Zeichnet die Messwerte in ein CIE-1931-Diagramm auf gegebene Achse.
 
     Args:
         ax: Matplotlib-Achse, in die gezeichnet wird.
         rgb_map: Zuordnung Temperatur -> Liste von (R, G, B)-Messwerten.
+        rgb_fine: optional die fertig berechnete Ausgleichskurve als
+            (M, 3)-Array (0-255), die nach CIE-xy projiziert und als
+            Linie eingezeichnet wird.
 
     Returns:
         Anzahl der gezeichneten Messwerte (0, wenn nichts zu zeichnen war).
@@ -1164,6 +1062,17 @@ def draw_cie1931(ax, rgb_map: Dict[int, List[Tuple[float, float, float]]]) -> in
     # Messpunkte in ihrer eigenen Farbe
     ax.scatter(xy[:, 0], xy[:, 1], c=rgb, s=14, alpha=0.95, edgecolors="none", zorder=30)
 
+    # Ausgleichskurve (bereits berechnet, hier nur nach xy projiziert);
+    # weisser Halo, damit die dunkle Linie auf dem farbigen
+    # Chromatizitaetshintergrund lesbar bleibt
+    if rgb_fine is not None and len(rgb_fine):
+        xy_fit = colour.XYZ_to_xy(colour.sRGB_to_XYZ(
+            np.clip(np.asarray(rgb_fine, dtype=float) / 255.0, 0, 1)))
+        ax.plot(xy_fit[:, 0], xy_fit[:, 1], color="navy", linewidth=1.8,
+                label="Ausgleichskurve", zorder=50,
+                path_effects=[pe.withStroke(linewidth=3.2, foreground="white")])
+        ax.legend(loc="upper right", fontsize=9)
+
     # Temperatur-Labels mit weissem Umriss fuer Lesbarkeit
     for (x, y), lbl in zip(xy, labels):
         ax.text(
@@ -1215,6 +1124,81 @@ def print_uniformity_report(result: dict, heading: str) -> None:
           f"{n_jump} Sprünge (> Mittel + 2σ), Helligkeit L*: {mono}")
 
 
+def plot_summary_panel(rgb_map: Dict[int, List[Tuple[float, float, float]]],
+                       temps: np.ndarray,
+                       scale_rgb: np.ndarray,
+                       t_fine: np.ndarray,
+                       rgb_fine: np.ndarray,
+                       output_dir: str,
+                       filename: str = "uebersicht_panel.png") -> None:
+    """Erstellt das zusammenfassende Zwei-Panel-Bild der Skalenrekonstruktion.
+
+    Links: 3D-RGB-Darstellung aller Messungen mit Ausgleichskurve.
+    Rechts: CIE-1931-Chromatizitaetsdiagramm mit allen Samples und
+    der Projektion der Ausgleichskurve.
+
+    Es wird nichts neu berechnet — alle Eingaben sind die bereits
+    vorliegenden Ergebnisse aus compute_color_scale() und
+    fit_color_spline_lab().
+
+    Args:
+        rgb_map: Alle Einzelmessungen (Temperatur -> Liste von RGB-Werten).
+        temps: Temperaturen der Skalenpunkte.
+        scale_rgb: (N, 3)-Array der Skalenfarben (Median je Temperatur).
+        t_fine: Temperaturraster der Ausgleichskurve.
+        rgb_fine: (M, 3)-Array der Kurvenpunkte (0-255).
+        output_dir: Ausgabeverzeichnis.
+        filename: Dateiname der Grafik.
+    """
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    fig = plt.figure(figsize=(16, 8.5))
+    gs = fig.add_gridspec(1, 2, wspace=0.08,
+                          left=0.03, right=0.97, top=0.92, bottom=0.05)
+
+    # links: RGB-Wuerfel mit Ausgleichskurve
+    ax_3d = fig.add_subplot(gs[0, 0], projection="3d")
+    draw_rgb_3d(ax_3d, rgb_map, temps, scale_rgb, rgb_fine)
+    ax_3d.set_box_aspect((1, 1, 1), zoom=1.1)
+    ax_3d.set_title("RGB-Raum mit Ausgleichskurve", fontsize=13)
+    ax_3d.legend(loc="upper left", fontsize=9)
+
+    # rechts: CIE 1931 mit allen Samples und projizierter Kurve
+    ax_cie = fig.add_subplot(gs[0, 1])
+    draw_cie1931(ax_cie, rgb_map, rgb_fine=rgb_fine)
+    ax_cie.set_title("CIE 1931 mit projizierter Ausgleichskurve", fontsize=13)
+
+    plt.savefig(Path(output_dir) / filename, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
+def plot_reconstructed_scale(rgb_fine: np.ndarray,
+                             output_dir: str,
+                             filename: str = "rekonstruierte_farbskala.png") -> None:
+    """Zeichnet die rekonstruierte kontinuierliche Farbskala als eigenes Bild.
+
+    Der Farbverlauf aus der Ausgleichskurve wird als horizontaler Balken
+    ohne Temperaturbeschriftung dargestellt.
+
+    Args:
+        rgb_fine: (M, 3)-Array der Kurvenpunkte (0-255).
+        output_dir: Ausgabeverzeichnis.
+        filename: Dateiname der Grafik.
+    """
+    Path(output_dir).mkdir(parents=True, exist_ok=True)
+
+    fig, ax_bar = plt.subplots(figsize=(16, 1.4))
+    gradient = np.clip(rgb_fine / 255.0, 0, 1)[np.newaxis, :, :]
+    ax_bar.imshow(gradient, aspect="auto", interpolation="bilinear",
+                  extent=(0, 1, 0, 1))
+    ax_bar.set_xticks([])
+    ax_bar.set_yticks([])
+    ax_bar.set_title("Rekonstruierte kontinuierliche Farbskala", fontsize=13)
+
+    plt.savefig(Path(output_dir) / filename, dpi=200, bbox_inches="tight")
+    plt.close(fig)
+
+
 def main():
     input_dir = "./bilder_wetterkarten_de_2025-2026/"
     output_dir = "./output_2025-2026/"
@@ -1232,7 +1216,8 @@ def main():
 
     # Farbskala (Median je Grad) und Ausgleichskurve berechnen
     temps, scale_rgb = compute_color_scale(rgb_map)
-    t_fine, rgb_fine = fit_color_spline_lab(temps, scale_rgb)
+    counts = np.array([len(rgb_map[int(t)]) for t in temps], dtype=float)
+    t_fine, rgb_fine = fit_color_spline_lab(temps, scale_rgb, counts=counts)
 
     print("Farbskala (Median je °C):")
     for t, (r, g, b) in zip(temps, scale_rgb):
@@ -1250,7 +1235,9 @@ def main():
     result_fit = analyze_perceptual_uniformity(temps, fit_rgb)
     print_uniformity_report(result_fit, "Uniformitätsanalyse — geglättete Skala (Ausgleichskurve)")
 
-    plot_all_rgb_cie1931(rgb_map, output_dir=output_dir)
+    plot_all_rgb_cie1931(rgb_map, output_dir=output_dir, rgb_fine=rgb_fine)
+    plot_summary_panel(rgb_map, temps, scale_rgb, t_fine, rgb_fine, output_dir=output_dir)
+    plot_reconstructed_scale(rgb_fine, output_dir=output_dir)
     plot_rgb_3d(rgb_map, temps, scale_rgb, t_fine, rgb_fine, output_dir=output_dir)
     plot_color_scale_bar(temps, scale_rgb, t_fine, rgb_fine, output_dir=output_dir)
     plot_perceptual_uniformity(result, temps, scale_rgb, output_dir=output_dir)
@@ -1268,94 +1255,6 @@ def main():
         except Exception as e:
             print(f"Warnung: Panel für {fn} übersprungen ({e})")
     plot_scales_overview(per_file, output_dir=output_dir)
-
-    # ------------------------------------------------------------------
-    # Skalenvarianten isolieren: die Redaktion verschiebt die Farbskala
-    # je nach Wetterlage in Temperaturrichtung, daher koennen verschiedene
-    # Temperaturen dieselbe Farbe tragen. Trennung ueber Band-Clustering
-    # und Offset-Schaetzung je Bild.
-    # ------------------------------------------------------------------
-    samples = build_samples(per_file)
-    band_colors = cluster_palette(samples)
-    offsets, _ = estimate_scale_offsets(samples)
-    variants = group_scale_variants(offsets)
-    n_var = max(variants.values()) + 1
-
-    print()
-    print(f"Skalenvarianten: {len(band_colors)} Farbbänder in der Palette, "
-          f"{n_var} Variante(n) über {len(offsets)} Bilder")
-    for fn in sorted(offsets, key=lambda f: (variants[f], offsets[f], f)):
-        print(f"  V{variants[fn]}  Offset {offsets[fn]:+5.1f} °C  {fn}")
-
-    plot_scale_variants(samples, offsets, variants, output_dir=output_dir)
-
-    # Validierung: maximale Farbdifferenz je Temperatur — gemischt muss sie
-    # gross sein (verschobene Skalen), je Variante klein (unimodal)
-    def max_de_per_temp(sample_list: List[dict]) -> float:
-        by_t: Dict[float, List[np.ndarray]] = defaultdict(list)
-        for s in sample_list:
-            by_t[s["temp"]].append(s["lab"])
-        worst = 0.0
-        for labs in by_t.values():
-            for i in range(len(labs)):
-                for j in range(i + 1, len(labs)):
-                    worst = max(worst, float(colour.delta_E(labs[i], labs[j], method="CIE 2000")))
-        return worst
-
-    worst_mixed = max_de_per_temp(samples)
-    worst_split = max(
-        (max_de_per_temp([s for s in samples if variants[s["file"]] == v]) for v in range(n_var)),
-        default=0.0)
-    aligned = [{**s, "temp": float(round(s["temp"] - offsets[s["file"]]))} for s in samples]
-    worst_aligned = max_de_per_temp(aligned)
-    print(f"  Validierung max ΔE00 je Temperatur: gemischt = {worst_mixed:.1f}, "
-          f"innerhalb der Varianten = {worst_split:.1f}, "
-          f"offset-korrigiert = {worst_aligned:.1f}")
-
-    # Referenzskala: alle Messungen um ihren Bild-Offset verschoben und
-    # gemeinsam ausgewertet — die eigentliche, verschiebungsbereinigte
-    # Zuordnung Farbband -> relative Temperatur mit maximaler Datenbasis.
-    # Die Temperaturachse ist relativ zur Referenzvariante (Offset 0).
-    ref_map: Dict[int, List[Tuple[float, float, float]]] = defaultdict(list)
-    for s in aligned:
-        ref_map[int(s["temp"])].append(tuple(s["rgb"]))
-
-    temps_r, scale_r = compute_color_scale(ref_map)
-    t_fine_r, rgb_fine_r = fit_color_spline_lab(temps_r, scale_r)
-    result_r = analyze_perceptual_uniformity(temps_r, scale_r, ref_map)
-    print_uniformity_report(result_r, "Uniformitätsanalyse — Referenzskala (offset-korrigiert, alle Bilder)")
-    plot_color_scale_bar(temps_r, scale_r, t_fine_r, rgb_fine_r,
-                         output_dir=output_dir, filename="farbskala_referenz.png")
-    plot_perceptual_uniformity(
-        result_r, temps_r, scale_r, output_dir=output_dir,
-        filename="wahrnehmung_uniformitaet_referenz.png",
-        title="Wahrnehmungsbasierte Uniformitätsanalyse — Referenzskala (offset-korrigiert)")
-
-    # Skala und Uniformitaetsanalyse je Variante
-    for v in range(n_var):
-        v_files = {fn for fn, vv in variants.items() if vv == v}
-        v_map: Dict[int, List[Tuple[float, float, float]]] = defaultdict(list)
-        for s in samples:
-            if s["file"] in v_files:
-                v_map[int(s["temp"])].append(tuple(s["rgb"]))
-
-        v_off = float(np.mean([offsets[fn] for fn in v_files]))
-        label = f"Variante V{v} (Offset {v_off:+.1f} °C, {len(v_files)} Bild(er))"
-
-        if len(v_map) < 5:
-            print(f"\n{label}: nur {len(v_map)} Temperaturen — Analyse übersprungen")
-            continue
-
-        temps_v, scale_v = compute_color_scale(v_map)
-        t_fine_v, rgb_fine_v = fit_color_spline_lab(temps_v, scale_v)
-        result_v = analyze_perceptual_uniformity(temps_v, scale_v, v_map)
-        print_uniformity_report(result_v, f"Uniformitätsanalyse — {label}")
-        plot_color_scale_bar(temps_v, scale_v, t_fine_v, rgb_fine_v,
-                             output_dir=output_dir, filename=f"farbskala_V{v}.png")
-        plot_perceptual_uniformity(
-            result_v, temps_v, scale_v, output_dir=output_dir,
-            filename=f"wahrnehmung_uniformitaet_V{v}.png",
-            title=f"Wahrnehmungsbasierte Uniformitätsanalyse — {label}")
 
 
 if __name__ == "__main__":

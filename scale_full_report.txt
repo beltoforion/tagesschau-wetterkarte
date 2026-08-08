@@ -1,0 +1,416 @@
+Farbskala (Median je °C):
+ -20 °C: (  26.0,   28.0,  114.0)  [2 Messung(en)]
+ -16 °C: (  38.4,   40.2,  117.8)  [1 Messung(en)]
+ -14 °C: (  36.5,   37.6,  124.9)  [2 Messung(en)]
+ -13 °C: (  39.0,   41.4,  125.2)  [2 Messung(en)]
+ -12 °C: (  30.8,   34.3,  120.2)  [1 Messung(en)]
+ -11 °C: (  22.9,   24.1,  148.1)  [2 Messung(en)]
+ -10 °C: (  30.9,   31.9,  110.7)  [3 Messung(en)]
+  -9 °C: (   4.3,   16.4,  166.4)  [3 Messung(en)]
+  -8 °C: (  16.5,   18.0,  165.7)  [7 Messung(en)]
+  -7 °C: (  29.4,   38.9,  188.9)  [2 Messung(en)]
+  -6 °C: (  19.2,   34.8,  194.0)  [8 Messung(en)]
+  -5 °C: (  29.1,   45.2,  201.5)  [13 Messung(en)]
+  -4 °C: (  18.7,   35.4,  199.5)  [10 Messung(en)]
+  -3 °C: (  35.2,   61.8,  209.2)  [13 Messung(en)]
+  -2 °C: (  25.2,   72.3,  215.3)  [10 Messung(en)]
+  -1 °C: (  34.5,   74.1,  212.2)  [18 Messung(en)]
+   0 °C: (  19.0,   86.5,  207.7)  [23 Messung(en)]
+   1 °C: (  16.3,   87.5,  209.7)  [23 Messung(en)]
+   2 °C: (  16.9,  104.3,  211.2)  [22 Messung(en)]
+   3 °C: (  17.6,  118.3,  190.3)  [25 Messung(en)]
+   4 °C: (  17.3,  133.9,  181.7)  [24 Messung(en)]
+   5 °C: (  17.8,  141.0,  175.3)  [26 Messung(en)]
+   6 °C: (  17.7,  158.3,  164.5)  [30 Messung(en)]
+   7 °C: (  18.1,  161.8,  115.1)  [27 Messung(en)]
+   8 °C: (  17.4,  166.9,  112.1)  [27 Messung(en)]
+   9 °C: (  18.3,  174.4,  111.1)  [41 Messung(en)]
+  10 °C: ( 103.0,  189.6,   94.7)  [41 Messung(en)]
+  11 °C: ( 103.9,  197.4,   91.5)  [35 Messung(en)]
+  12 °C: ( 106.8,  198.2,   91.7)  [37 Messung(en)]
+  13 °C: ( 108.0,  194.2,   89.9)  [33 Messung(en)]
+  14 °C: ( 172.6,  195.4,   68.6)  [39 Messung(en)]
+  15 °C: ( 172.6,  194.9,   68.0)  [35 Messung(en)]
+  16 °C: ( 172.4,  192.3,   67.1)  [31 Messung(en)]
+  17 °C: ( 219.1,  194.4,   69.0)  [30 Messung(en)]
+  18 °C: ( 218.8,  168.3,   77.4)  [20 Messung(en)]
+  19 °C: ( 218.5,  154.6,   85.7)  [28 Messung(en)]
+  20 °C: ( 218.1,  154.9,   86.4)  [19 Messung(en)]
+  21 °C: ( 219.5,  156.3,   86.7)  [26 Messung(en)]
+  22 °C: ( 220.0,  118.2,   88.9)  [19 Messung(en)]
+  23 °C: ( 213.2,  118.9,   89.1)  [21 Messung(en)]
+  24 °C: ( 215.8,  114.3,   88.4)  [17 Messung(en)]
+  25 °C: ( 211.7,  130.2,   84.6)  [16 Messung(en)]
+  26 °C: ( 209.6,  114.5,   88.3)  [17 Messung(en)]
+  27 °C: ( 204.9,  111.4,   89.5)  [15 Messung(en)]
+  28 °C: ( 205.8,  111.8,   90.7)  [16 Messung(en)]
+  29 °C: ( 203.5,   95.1,   79.3)  [12 Messung(en)]
+  30 °C: ( 204.3,   78.3,   69.0)  [13 Messung(en)]
+  31 °C: ( 207.6,   78.0,   68.8)  [13 Messung(en)]
+  32 °C: ( 208.5,   78.2,   70.0)  [9 Messung(en)]
+  33 °C: ( 196.2,   68.8,   45.1)  [7 Messung(en)]
+  34 °C: ( 187.2,   41.8,   25.8)  [6 Messung(en)]
+  35 °C: ( 182.6,   15.7,    7.8)  [3 Messung(en)]
+  36 °C: ( 184.3,   17.4,    7.0)  [3 Messung(en)]
+  37 °C: ( 179.4,   23.8,   13.0)  [3 Messung(en)]
+  38 °C: ( 173.9,   21.5,   11.7)  [2 Messung(en)]
+  39 °C: ( 169.8,   21.6,   11.0)  [2 Messung(en)]
+  40 °C: ( 169.0,   27.6,   17.5)  [2 Messung(en)]
+  41 °C: ( 136.4,   27.8,   26.9)  [1 Messung(en)]
+  43 °C: ( 124.8,   17.0,   16.6)  [1 Messung(en)]
+
+Uniformitätsanalyse — gemessene Skala (Median je °C) (Farbdifferenz je 1-°C-Schritt):
+     Schritt          ΔE00     ΔE76   ΔE CAM16  Anomalie
+ -20 → -16 °C    0.86 ±0.29     1.98       0.99  unter JND (nicht unterscheidbar)
+ -16 → -14 °C    0.83 ±0.35     3.11       0.70  unter JND (nicht unterscheidbar)
+ -14 → -13 °C    1.09 ±0.80     2.86       1.12  
+ -13 → -12 °C    2.04 ±0.72     3.56       2.62  
+ -12 → -11 °C    5.22 ±3.00    22.28       4.30  
+ -11 → -10 °C    6.41 ±3.31    26.34       5.87  
+ -10 →  -9 °C    8.96 ±0.93    39.35       8.21  
+  -9 →  -8 °C    0.42 ±1.04     1.34       0.81  unter JND (nicht unterscheidbar)
+  -8 →  -7 °C    5.16 ±1.88     7.44       6.54  
+  -7 →  -6 °C    0.96 ±1.52     5.01       0.87  unter JND (nicht unterscheidbar)
+  -6 →  -5 °C    2.49 ±1.38     3.98       2.96  
+  -5 →  -4 °C    2.07 ±0.66     5.25       2.19  
+  -4 →  -3 °C    6.28 ±1.31    13.54       6.58  
+  -3 →  -2 °C    3.16 ±1.56     5.58       3.17  
+  -2 →  -1 °C    0.65 ±0.86     3.09       0.70  unter JND (nicht unterscheidbar)
+  -1 →   0 °C    4.55 ±1.86    12.65       4.02  
+   0 →   1 °C    0.41 ±1.56     0.63       0.44  unter JND (nicht unterscheidbar)
+   1 →   2 °C    6.02 ±2.87    13.17       5.62  
+   2 →   3 °C    6.76 ±3.22    23.82       7.88  
+   3 →   4 °C    8.21 ±2.84    17.65       8.45  
+   4 →   5 °C    5.21 ±4.23     9.33       4.88  
+   5 →   6 °C   12.01 ±5.32    19.28      10.95  
+   6 →   7 °C   18.16 ±4.73    31.49      15.63  SPRUNG (> Mittel + 2σ)
+   7 →   8 °C    2.28 ±3.53     4.93       2.37  
+   8 →   9 °C    2.66 ±5.27     5.40       2.91  
+   9 →  10 °C    9.99 ±2.92    19.98      10.76  
+  10 →  11 °C    2.36 ±2.21     6.05       2.81  
+  11 →  12 °C    0.38 ±2.28     0.75       0.46  unter JND (nicht unterscheidbar)
+  12 →  13 °C    1.06 ±1.52     2.22       1.27  
+  13 →  14 °C   12.41 ±2.49    26.01      12.00  
+  14 →  15 °C    0.16 ±2.06     0.26       0.16  unter JND (nicht unterscheidbar)
+  15 →  16 °C    0.75 ±2.25     1.42       0.86  unter JND (nicht unterscheidbar)
+  16 →  17 °C   11.59 ±2.54    19.81      10.80  
+  17 →  18 °C   10.96 ±3.40    18.81      10.54  
+  18 →  19 °C    7.27 ±2.88    11.46       6.33  
+  19 →  20 °C    0.17 ±2.94     0.45       0.17  unter JND (nicht unterscheidbar)
+  20 →  21 °C    0.45 ±3.07     0.69       0.52  unter JND (nicht unterscheidbar)
+  21 →  22 °C   17.56 ±3.92    25.07      15.38  SPRUNG (> Mittel + 2σ)
+  22 →  23 °C    1.40 ±3.38     3.36       1.76  
+  23 →  24 °C    1.89 ±4.17     3.43       1.94  
+  24 →  25 °C    8.10 ±2.22    12.00       7.08  
+  25 →  26 °C    7.70 ±2.30    10.87       6.59  
+  26 →  27 °C    1.76 ±2.61     2.77       1.59  
+  27 →  28 °C    0.37 ±1.18     0.51       0.33  unter JND (nicht unterscheidbar)
+  28 →  29 °C    4.62 ±1.13     8.01       5.29  
+  29 →  30 °C    4.01 ±1.60     8.43       4.93  
+  30 →  31 °C    0.64 ±1.25     1.60       0.82  unter JND (nicht unterscheidbar)
+  31 →  32 °C    0.34 ±1.34     0.50       0.30  unter JND (nicht unterscheidbar)
+  32 →  33 °C    6.21 ±1.86     9.78       5.32  
+  33 →  34 °C    5.55 ±1.70     9.45       6.82  
+  34 →  35 °C    3.17 ±1.90     7.10       4.23  
+  35 →  36 °C    0.48 ±0.93     0.87       0.52  unter JND (nicht unterscheidbar)
+  36 →  37 °C    1.09 ±0.87     3.91       1.45  
+  37 →  38 °C    1.18 ±1.06     1.96       1.47  
+  38 →  39 °C    0.80 ±0.40     1.62       1.06  unter JND (nicht unterscheidbar)
+  39 →  40 °C    0.93 ±0.81     2.96       1.05  unter JND (nicht unterscheidbar)
+  40 →  41 °C    7.53 ±1.40    18.05       9.07  
+  41 →  43 °C    1.50 ±0.00     2.05       1.91  
+
+Zusammenfassung: ΔE00 Mittel = 4.26, Std = 4.28, CV = 1.00 (0 = perfekt uniform)
+  17 von 58 Schritten unter JND (ΔE00 < 1), 2 Sprünge (> Mittel + 2σ), Helligkeit L*: nicht monoton
+
+Uniformitätsanalyse — geglättete Skala (Ausgleichskurve) (Farbdifferenz je 1-°C-Schritt):
+     Schritt          ΔE00     ΔE76   ΔE CAM16  Anomalie
+ -20 → -16 °C    0.57           1.74       0.50  unter JND (nicht unterscheidbar)
+ -16 → -14 °C    0.84           3.09       0.78  unter JND (nicht unterscheidbar)
+ -14 → -13 °C    0.96           3.40       0.78  unter JND (nicht unterscheidbar)
+ -13 → -12 °C    1.67           6.36       1.50  
+ -12 → -11 °C    3.07          12.63       2.62  
+ -11 → -10 °C    3.01          12.57       2.39  
+ -10 →  -9 °C    5.94          26.72       5.00  
+  -9 →  -8 °C    1.55           6.11       2.07  
+  -8 →  -7 °C    1.20           1.88       1.42  
+  -7 →  -6 °C    1.27           2.96       1.63  
+  -6 →  -5 °C    1.42           2.96       1.84  
+  -5 →  -4 °C    1.65           2.37       1.95  
+  -4 →  -3 °C    2.31           6.05       2.20  
+  -3 →  -2 °C    2.94           8.18       2.65  
+  -2 →  -1 °C    3.13           6.91       2.95  
+  -1 →   0 °C    3.02           4.47       3.03  
+   0 →   1 °C    3.24           6.77       3.13  
+   1 →   2 °C    4.37          15.10       4.37  
+   2 →   3 °C    6.47          19.38       7.18  
+   3 →   4 °C    7.64          16.02       7.73  
+   4 →   5 °C    6.62          12.22       6.31  
+   5 →   6 °C   13.08          21.31      11.64  SPRUNG (> Mittel + 2σ)
+   6 →   7 °C   15.06          26.08      13.05  SPRUNG (> Mittel + 2σ)
+   7 →   8 °C    4.03           9.74       4.18  
+   8 →   9 °C    3.02           5.26       3.36  
+   9 →  10 °C    7.45          16.66       7.53  
+  10 →  11 °C    2.42           6.45       2.70  
+  11 →  12 °C    1.67           3.20       1.84  
+  12 →  13 °C    3.28           7.75       3.48  
+  13 →  14 °C    9.28          19.56       8.53  
+  14 →  15 °C    1.44           2.76       1.33  
+  15 →  16 °C    1.28           2.67       1.01  
+  16 →  17 °C    9.51          16.65       8.50  
+  17 →  18 °C   10.94          17.73       9.62  SPRUNG (> Mittel + 2σ)
+  18 →  19 °C    6.48          10.80       5.43  
+  19 →  20 °C    1.72           3.11       1.98  
+  20 →  21 °C    3.22           4.47       2.90  
+  21 →  22 °C   11.46          16.99       9.71  SPRUNG (> Mittel + 2σ)
+  22 →  23 °C    3.97           6.25       3.29  
+  23 →  24 °C    2.28           3.25       2.55  
+  24 →  25 °C    2.36           3.25       2.21  
+  25 →  26 °C    1.10           1.50       1.24  
+  26 →  27 °C    2.21           3.34       1.72  
+  27 →  28 °C    3.19           4.74       2.75  
+  28 →  29 °C    3.33           6.55       3.73  
+  29 →  30 °C    2.61           6.04       3.33  
+  30 →  31 °C    2.63           4.21       2.59  
+  31 →  32 °C    3.13           4.77       2.85  
+  32 →  33 °C    2.85           5.35       2.93  
+  33 →  34 °C    2.49           5.61       3.05  
+  34 →  35 °C    2.04           4.60       2.73  
+  35 →  36 °C    1.52           2.54       1.98  
+  36 →  37 °C    1.22           1.43       1.49  
+  37 →  38 °C    1.23           2.44       1.58  
+  38 →  39 °C    1.47           3.76       2.10  
+  39 →  40 °C    1.87           5.57       2.73  
+  40 →  41 °C    5.64          13.35       4.77  
+  41 →  43 °C    2.43           3.45       3.10  
+
+Zusammenfassung: ΔE00 Mittel = 3.76, Std = 3.18, CV = 0.85 (0 = perfekt uniform)
+  3 von 58 Schritten unter JND (ΔE00 < 1), 4 Sprünge (> Mittel + 2σ), Helligkeit L*: nicht monoton
+
+Skalenvarianten: 23 Farbbänder in der Palette, 1 Variante(n) über 99 Bilder
+  V0  Offset  -3.5 °C  nacht-2025-01-29.png
+  V0  Offset  -3.5 °C  tag-2025-02-20.png.png
+  V0  Offset  -3.0 °C  nacht-2025-01-01.png
+  V0  Offset  -3.0 °C  nacht-2025-02-16.png
+  V0  Offset  -3.0 °C  nacht-2025-02-20.png
+  V0  Offset  -3.0 °C  nacht-2025-03-20.png
+  V0  Offset  -3.0 °C  tag-2025-01-01.png
+  V0  Offset  -3.0 °C  tag-2025-01-29.png
+  V0  Offset  -3.0 °C  tag-2025-02-16.png
+  V0  Offset  -2.8 °C  nacht-2025-04-01.png
+  V0  Offset  -2.5 °C  nacht-2025-12-01.png
+  V0  Offset  -2.5 °C  tag-2025-03-20.png
+  V0  Offset  -2.5 °C  tag-2025-04-01.png
+  V0  Offset  -2.5 °C  tag-2025-04-16.webp
+  V0  Offset  -2.2 °C  nacht-2025-04-17.png
+  V0  Offset  -2.0 °C  nacht-2025-03-17.png
+  V0  Offset  -2.0 °C  nacht-2025-11-01.png
+  V0  Offset  -2.0 °C  nacht-2025-11-15.png
+  V0  Offset  -2.0 °C  tag-2025-03-17.png
+  V0  Offset  -2.0 °C  tag-2025-04-17.png
+  V0  Offset  -2.0 °C  tag-2025-11-01.png
+  V0  Offset  -2.0 °C  tag-2025-11-15.png
+  V0  Offset  -2.0 °C  tag-2025-12-01.png
+  V0  Offset  -1.5 °C  nacht-2025-06-14.webp
+  V0  Offset  -1.5 °C  tag-2025-05-25.png
+  V0  Offset  -1.5 °C  tag-2025-06-07.webp
+  V0  Offset  -1.5 °C  tag-2025-06-10.webp
+  V0  Offset  -1.5 °C  tag-2025-09-01.png
+  V0  Offset  -1.5 °C  tag-2025-09-15.png
+  V0  Offset  -1.5 °C  tag-2025-05-02.webp
+  V0  Offset  -1.5 °C  tag-2025-05-30.png
+  V0  Offset  -1.0 °C  nacht-2025-05-02.webp
+  V0  Offset  -1.0 °C  nacht-2025-05-25.png
+  V0  Offset  -1.0 °C  nacht-2025-05-30.png
+  V0  Offset  -1.0 °C  nacht-2025-06-07.webp
+  V0  Offset  -1.0 °C  nacht-2025-06-10.webp
+  V0  Offset  -1.0 °C  nacht-2025-09-15.png
+  V0  Offset  -1.0 °C  nacht-2025-10-01.png
+  V0  Offset  -1.0 °C  nacht-2025-10-15.png
+  V0  Offset  -1.0 °C  tag-2025-10-01.png
+  V0  Offset  -0.8 °C  nacht-2025-09-01.png
+  V0  Offset  -0.7 °C  tag-2025-10-15.png
+  V0  Offset  -0.5 °C  nacht-2026-02-01-2016.png
+  V0  Offset  -0.5 °C  tag-2025-06-14.webp
+  V0  Offset  -0.5 °C  tag-2025-07-15.webp
+  V0  Offset  -0.5 °C  tag-2025-08-01.png
+  V0  Offset  -0.5 °C  tag-2025-08-15.png
+  V0  Offset  -0.2 °C  nacht-2025-07-01.png
+  V0  Offset  +0.0 °C  nacht-2025-07-04.webp
+  V0  Offset  +0.0 °C  nacht-2025-07-15.webp
+  V0  Offset  +0.0 °C  nacht-2025-08-01.png
+  V0  Offset  +0.0 °C  nacht-2025-08-11.png
+  V0  Offset  +0.0 °C  nacht-2026-01-01.png
+  V0  Offset  +0.0 °C  nacht-2026-01-10.png
+  V0  Offset  +0.0 °C  nacht-2026-02-15.png
+  V0  Offset  +0.0 °C  tag-2026-01-01.png
+  V0  Offset  +0.0 °C  tag-2026-01-10.png
+  V0  Offset  +0.0 °C  tag-2026-02-01.png
+  V0  Offset  +0.0 °C  tag-2026-02-15.png
+  V0  Offset  +0.0 °C  tag-2025-07-04.webp
+  V0  Offset  +0.2 °C  nacht-2026-01-15.png
+  V0  Offset  +0.5 °C  tag-2025-08-11.png
+  V0  Offset  +0.5 °C  nacht-2025-08-15.png
+  V0  Offset  +0.5 °C  tag-2026-01-15.png
+  V0  Offset  +1.0 °C  nacht-2026-03-01.png
+  V0  Offset  +1.0 °C  nacht-2026-03-15.png
+  V0  Offset  +1.0 °C  nacht-2026-04-01.png
+  V0  Offset  +1.0 °C  tag-2026-03-15.png
+  V0  Offset  +1.2 °C  nacht-2026-04-15.png
+  V0  Offset  +1.5 °C  tag-2025-07-01.png
+  V0  Offset  +1.8 °C  nacht-2026-05-20.png
+  V0  Offset  +2.0 °C  nacht-2026-05-15.png
+  V0  Offset  +2.0 °C  tag-2026-03-01.png
+  V0  Offset  +2.0 °C  tag-2026-04-01.png
+  V0  Offset  +2.0 °C  tag-2026-04-15.png
+  V0  Offset  +2.5 °C  nacht-2026-05-01.png
+  V0  Offset  +2.5 °C  tag-2026-05-20.png
+  V0  Offset  +2.8 °C  nacht-2026-05-24.webp
+  V0  Offset  +3.0 °C  nacht-2026-06-01.png
+  V0  Offset  +3.0 °C  tag-2026-05-15.png
+  V0  Offset  +3.2 °C  nacht-2026-06-15.png
+  V0  Offset  +3.5 °C  nacht-2026-06-27.png
+  V0  Offset  +3.5 °C  nacht-2026-07-24.png
+  V0  Offset  +3.5 °C  tag-2026-05-01.png
+  V0  Offset  +3.5 °C  tag-2026-06-01.png
+  V0  Offset  +3.5 °C  tag-2026-06-24.webp
+  V0  Offset  +4.0 °C  nacht-2026-07-01.png
+  V0  Offset  +4.0 °C  nacht-2026-07-12.png
+  V0  Offset  +4.0 °C  nacht-2026-07-15.png
+  V0  Offset  +4.0 °C  nacht-2026-07-31.png
+  V0  Offset  +4.0 °C  nacht-2026-08-01.png
+  V0  Offset  +4.0 °C  tag-2026-07-24.png
+  V0  Offset  +4.5 °C  tag-2026-06-27.png
+  V0  Offset  +4.5 °C  tag-2026-07-01.png
+  V0  Offset  +4.5 °C  tag-2026-07-15.png
+  V0  Offset  +4.5 °C  tag-2026-08-01.png
+  V0  Offset  +4.5 °C  tag-2026-07-31.png
+  V0  Offset  +4.5 °C  tag-2026-06-15.png
+  V0  Offset  +4.5 °C  tag-2026-07-12.png
+  Validierung max ΔE00 je Temperatur: gemischt = 79.3, innerhalb der Varianten = 79.3, offset-korrigiert = 63.8
+
+Uniformitätsanalyse — Referenzskala (offset-korrigiert, alle Bilder) (Farbdifferenz je 1-°C-Schritt):
+     Schritt          ΔE00     ΔE76   ΔE CAM16  Anomalie
+ -20 → -17 °C    1.12 ±0.00     2.45       1.27  
+ -17 → -16 °C    5.07 ±0.00    11.51       5.76  
+ -16 → -14 °C    0.52 ±0.00     1.06       0.70  unter JND (nicht unterscheidbar)
+ -14 → -13 °C    1.35 ±0.00     2.73       1.73  
+ -13 → -12 °C    1.07 ±0.00     2.45       1.28  
+ -12 → -11 °C    1.28 ±0.65     4.88       1.15  
+ -11 → -10 °C    2.65 ±0.60     9.06       2.83  
+ -10 →  -9 °C    8.78 ±0.17    38.11       8.01  
+  -9 →  -8 °C    0.40 ±0.27     1.78       0.44  unter JND (nicht unterscheidbar)
+  -8 →  -7 °C    0.67 ±1.83     2.46       0.84  unter JND (nicht unterscheidbar)
+  -7 →  -6 °C    4.75 ±1.05     8.51       6.10  
+  -6 →  -5 °C    0.81 ±0.36     3.44       0.97  unter JND (nicht unterscheidbar)
+  -5 →  -4 °C    0.09 ±0.31     0.50       0.08  unter JND (nicht unterscheidbar)
+  -4 →  -3 °C    6.55 ±0.36    13.81       7.25  
+  -3 →  -2 °C    0.22 ±0.25     1.15       0.23  unter JND (nicht unterscheidbar)
+  -2 →  -1 °C    0.12 ±0.25     0.21       0.13  unter JND (nicht unterscheidbar)
+  -1 →   0 °C    8.50 ±1.12    21.07       7.77  
+   0 →   1 °C    0.30 ±1.26     1.09       0.36  unter JND (nicht unterscheidbar)
+   1 →   2 °C    0.17 ±0.87     0.69       0.20  unter JND (nicht unterscheidbar)
+   2 →   3 °C   11.60 ±1.87    34.84      11.71  
+   3 →   4 °C    0.54 ±1.86     0.62       0.52  unter JND (nicht unterscheidbar)
+   4 →   5 °C   13.60 ±1.99    28.47      13.74  
+   5 →   6 °C    3.85 ±1.76     6.94       3.56  
+   6 →   7 °C    0.31 ±0.35     0.54       0.29  unter JND (nicht unterscheidbar)
+   7 →   8 °C   29.13 ±2.66    49.22      24.62  SPRUNG (> Mittel + 2σ)
+   8 →   9 °C    1.25 ±2.59     2.89       1.33  
+   9 →  10 °C    0.16 ±0.26     0.48       0.16  unter JND (nicht unterscheidbar)
+  10 →  11 °C   14.06 ±0.56    27.53      15.71  
+  11 →  12 °C    0.39 ±0.45     0.99       0.48  unter JND (nicht unterscheidbar)
+  12 →  13 °C    0.58 ±0.29     1.56       0.71  unter JND (nicht unterscheidbar)
+  13 →  14 °C   12.68 ±0.84    27.82      12.20  
+  14 →  15 °C    0.26 ±0.82     0.59       0.32  unter JND (nicht unterscheidbar)
+  15 →  16 °C    0.45 ±0.61     0.87       0.42  unter JND (nicht unterscheidbar)
+  16 →  17 °C   11.37 ±0.63    19.73      10.49  
+  17 →  18 °C    0.40 ±0.38     0.84       0.54  unter JND (nicht unterscheidbar)
+  18 →  19 °C   19.47 ±2.75    32.38      18.10  SPRUNG (> Mittel + 2σ)
+  19 →  20 °C    0.89 ±2.47     1.52       0.71  unter JND (nicht unterscheidbar)
+  20 →  21 °C    0.11 ±0.38     0.33       0.11  unter JND (nicht unterscheidbar)
+  21 →  22 °C   16.36 ±1.25    23.25      14.32  SPRUNG (> Mittel + 2σ)
+  22 →  23 °C    2.80 ±1.25     4.94       2.93  
+  23 →  24 °C    1.76 ±0.47     3.64       2.14  
+  24 →  25 °C    8.45 ±0.78    18.80      10.63  
+  25 →  26 °C    1.23 ±0.66     3.06       1.39  
+  26 →  27 °C    0.16 ±0.58     0.45       0.16  unter JND (nicht unterscheidbar)
+  27 →  28 °C    6.19 ±1.07    12.53       4.92  
+  28 →  29 °C    1.69 ±0.56     3.32       1.92  
+  29 →  30 °C    0.43 ±0.55     1.30       0.64  unter JND (nicht unterscheidbar)
+  30 →  31 °C    4.14 ±0.64     9.69       4.93  
+  31 →  32 °C    1.50 ±0.49     3.15       1.81  
+  32 →  33 °C    2.78 ±1.06     6.17       3.49  
+  33 →  34 °C    4.68 ±1.17     6.02       5.70  
+  34 →  35 °C    2.29 ±0.32     8.12       3.00  
+  35 →  36 °C    2.48 ±0.79     8.26       3.34  
+  36 →  37 °C    1.16 ±2.06     1.76       1.43  
+  37 →  38 °C    0.41 ±2.04     0.83       0.54  unter JND (nicht unterscheidbar)
+  38 →  39 °C    4.47 ±2.95    12.17       5.46  
+
+Zusammenfassung: ΔE00 Mittel = 4.08, Std = 5.75, CV = 1.41 (0 = perfekt uniform)
+  22 von 56 Schritten unter JND (ΔE00 < 1), 3 Sprünge (> Mittel + 2σ), Helligkeit L*: nicht monoton
+
+Uniformitätsanalyse — Variante V0 (Offset +0.2 °C, 99 Bild(er)) (Farbdifferenz je 1-°C-Schritt):
+     Schritt          ΔE00     ΔE76   ΔE CAM16  Anomalie
+ -20 → -16 °C    0.86 ±0.29     1.98       0.99  unter JND (nicht unterscheidbar)
+ -16 → -14 °C    0.83 ±0.35     3.11       0.70  unter JND (nicht unterscheidbar)
+ -14 → -13 °C    1.09 ±0.80     2.86       1.12  
+ -13 → -12 °C    2.04 ±0.72     3.56       2.62  
+ -12 → -11 °C    5.22 ±3.00    22.28       4.30  
+ -11 → -10 °C    6.41 ±3.31    26.34       5.87  
+ -10 →  -9 °C    8.96 ±0.93    39.35       8.21  
+  -9 →  -8 °C    0.42 ±1.04     1.34       0.81  unter JND (nicht unterscheidbar)
+  -8 →  -7 °C    5.16 ±1.88     7.44       6.54  
+  -7 →  -6 °C    0.96 ±1.52     5.01       0.87  unter JND (nicht unterscheidbar)
+  -6 →  -5 °C    2.49 ±1.38     3.98       2.96  
+  -5 →  -4 °C    2.07 ±0.66     5.25       2.19  
+  -4 →  -3 °C    6.28 ±1.31    13.54       6.58  
+  -3 →  -2 °C    3.16 ±1.56     5.58       3.17  
+  -2 →  -1 °C    0.65 ±0.86     3.09       0.70  unter JND (nicht unterscheidbar)
+  -1 →   0 °C    4.55 ±1.86    12.65       4.02  
+   0 →   1 °C    0.41 ±1.56     0.63       0.44  unter JND (nicht unterscheidbar)
+   1 →   2 °C    6.02 ±2.87    13.17       5.62  
+   2 →   3 °C    6.76 ±3.22    23.82       7.88  
+   3 →   4 °C    8.21 ±2.84    17.65       8.45  
+   4 →   5 °C    5.21 ±4.23     9.33       4.88  
+   5 →   6 °C   12.01 ±5.32    19.28      10.95  
+   6 →   7 °C   18.16 ±4.73    31.49      15.63  SPRUNG (> Mittel + 2σ)
+   7 →   8 °C    2.28 ±3.53     4.93       2.37  
+   8 →   9 °C    2.66 ±5.27     5.40       2.91  
+   9 →  10 °C    9.99 ±2.92    19.98      10.76  
+  10 →  11 °C    2.36 ±2.21     6.05       2.81  
+  11 →  12 °C    0.38 ±2.28     0.75       0.46  unter JND (nicht unterscheidbar)
+  12 →  13 °C    1.06 ±1.52     2.22       1.27  
+  13 →  14 °C   12.41 ±2.49    26.01      12.00  
+  14 →  15 °C    0.16 ±2.06     0.26       0.16  unter JND (nicht unterscheidbar)
+  15 →  16 °C    0.75 ±2.25     1.42       0.86  unter JND (nicht unterscheidbar)
+  16 →  17 °C   11.59 ±2.54    19.81      10.80  
+  17 →  18 °C   10.96 ±3.40    18.81      10.54  
+  18 →  19 °C    7.27 ±2.88    11.46       6.33  
+  19 →  20 °C    0.17 ±2.94     0.45       0.17  unter JND (nicht unterscheidbar)
+  20 →  21 °C    0.45 ±3.07     0.69       0.52  unter JND (nicht unterscheidbar)
+  21 →  22 °C   17.56 ±3.92    25.07      15.38  SPRUNG (> Mittel + 2σ)
+  22 →  23 °C    1.40 ±3.38     3.36       1.76  
+  23 →  24 °C    1.89 ±4.17     3.43       1.94  
+  24 →  25 °C    8.10 ±2.22    12.00       7.08  
+  25 →  26 °C    7.70 ±2.30    10.87       6.59  
+  26 →  27 °C    1.76 ±2.61     2.77       1.59  
+  27 →  28 °C    0.37 ±1.18     0.51       0.33  unter JND (nicht unterscheidbar)
+  28 →  29 °C    4.62 ±1.13     8.01       5.29  
+  29 →  30 °C    4.01 ±1.60     8.43       4.93  
+  30 →  31 °C    0.64 ±1.25     1.60       0.82  unter JND (nicht unterscheidbar)
+  31 →  32 °C    0.34 ±1.34     0.50       0.30  unter JND (nicht unterscheidbar)
+  32 →  33 °C    6.21 ±1.86     9.78       5.32  
+  33 →  34 °C    5.55 ±1.70     9.45       6.82  
+  34 →  35 °C    3.17 ±1.90     7.10       4.23  
+  35 →  36 °C    0.48 ±0.93     0.87       0.52  unter JND (nicht unterscheidbar)
+  36 →  37 °C    1.09 ±0.87     3.91       1.45  
+  37 →  38 °C    1.18 ±1.06     1.96       1.47  
+  38 →  39 °C    0.80 ±0.40     1.62       1.06  unter JND (nicht unterscheidbar)
+  39 →  40 °C    0.93 ±0.81     2.96       1.05  unter JND (nicht unterscheidbar)
+  40 →  41 °C    7.53 ±1.40    18.05       9.07  
+  41 →  43 °C    1.50 ±0.00     2.05       1.91  
+
+Zusammenfassung: ΔE00 Mittel = 4.26, Std = 4.28, CV = 1.00 (0 = perfekt uniform)
+  17 von 58 Schritten unter JND (ΔE00 < 1), 2 Sprünge (> Mittel + 2σ), Helligkeit L*: nicht monoton
